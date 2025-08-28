@@ -35,6 +35,7 @@ enum AppConstants {
 
         /// Remote Access Settings
         static let tailscaleServeEnabled = "tailscaleServeEnabled"
+        static let tailscaleFunnelEnabled = "tailscaleFunnelEnabled"
 
         // New Session keys
         static let newSessionCommand = "NewSession.command"
@@ -75,6 +76,7 @@ enum AppConstants {
 
         /// Tailscale Settings
         static let tailscaleServeEnabled: Bool? = nil // Use existing UserDefaults value if set
+        static let tailscaleFunnelEnabled = false // Default to OFF for security
     }
 
     /// Helper to get boolean value with proper default
@@ -94,6 +96,8 @@ enum AppConstants {
                 return Defaults.showInDock
             case UserDefaultsKeys.tailscaleServeEnabled:
                 return Defaults.tailscaleServeEnabled ?? false
+            case UserDefaultsKeys.tailscaleFunnelEnabled:
+                return Defaults.tailscaleFunnelEnabled
             default:
                 return false
             }

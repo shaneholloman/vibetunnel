@@ -219,6 +219,14 @@ final class DevServerManager: ObservableObject {
             self.logger.info("Tailscale Serve integration enabled")
         }
 
+        // Add Tailscale Funnel integration if enabled
+        let tailscaleFunnelEnabled = UserDefaults.standard
+            .bool(forKey: AppConstants.UserDefaultsKeys.tailscaleFunnelEnabled)
+        if tailscaleFunnelEnabled {
+            args.append("--enable-tailscale-funnel")
+            logger.warning("Tailscale Funnel integration enabled - PUBLIC INTERNET ACCESS")
+        }
+
         return args
     }
 }

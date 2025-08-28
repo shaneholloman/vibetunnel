@@ -94,6 +94,8 @@ interface Config {
   localAuthToken: string | null;
   // Tailscale Serve integration (manages auth and proxy)
   enableTailscaleServe: boolean;
+  // Tailscale Funnel integration (public internet access)
+  enableTailscaleFunnel: boolean;
   // HQ auth bypass for testing
   noHqAuth: boolean;
   // mDNS advertisement
@@ -118,6 +120,7 @@ Options:
   --allow-local-bypass  Allow localhost connections to bypass authentication
   --local-auth-token <token>  Token for localhost authentication bypass
   --enable-tailscale-serve  Enable Tailscale Serve integration (auto-manages proxy and auth)
+  --enable-tailscale-funnel Enable Tailscale Funnel for public internet access (requires --enable-tailscale-serve)
   --debug               Enable debug logging
 
 Push Notification Options:
@@ -190,6 +193,8 @@ function parseArgs(): Config {
     localAuthToken: null as string | null,
     // Tailscale Serve integration (manages auth and proxy)
     enableTailscaleServe: false,
+    // Tailscale Funnel integration (public internet access)
+    enableTailscaleFunnel: false,
     // HQ auth bypass for testing
     noHqAuth: false,
     // mDNS advertisement
@@ -257,6 +262,8 @@ function parseArgs(): Config {
       i++; // Skip the token value in next iteration
     } else if (args[i] === '--enable-tailscale-serve') {
       config.enableTailscaleServe = true;
+    } else if (args[i] === '--enable-tailscale-funnel') {
+      config.enableTailscaleFunnel = true;
     } else if (args[i] === '--no-hq-auth') {
       config.noHqAuth = true;
     } else if (args[i] === '--no-mdns') {
@@ -1245,30 +1252,41 @@ export async function createApp(): Promise<AppInstance> {
         }
       }
 
+      // Validate Tailscale configuration
+      if (config.enableTailscaleFunnel && !config.enableTailscaleServe) {
+        logger.error('Tailscale Funnel requires Tailscale Serve to be enabled');
+        process.exit(1);
+      }
+
       // Start Tailscale Serve if requested
       if (config.enableTailscaleServe) {
-        logger.log(chalk.blue('Starting Tailscale Serve integration...'));
+        logger.info(chalk.blue('Starting Tailscale Serve integration...'));
 
         tailscaleServeService
-          .start(actualPort)
+          .start(actualPort, config.enableTailscaleFunnel)
           .then(() => {
-            logger.log(chalk.green('Tailscale Serve: ENABLED'));
-            logger.log(
+            logger.info(chalk.green('Tailscale Serve: ENABLED'));
+            if (config.enableTailscaleFunnel) {
+              logger.warn(chalk.yellow('Tailscale Funnel: ENABLED - PUBLIC INTERNET ACCESS'));
+            }
+            logger.info(
               chalk.gray('Users will be auto-authenticated via Tailscale identity headers')
             );
-            logger.log(
+            logger.info(
               chalk.gray(
                 `Access via HTTPS on your Tailscale hostname (e.g., https://hostname.tailnet.ts.net)`
               )
             );
           })
           .catch((error) => {
-            logger.error(chalk.red('Failed to start Tailscale Serve:'), error.message);
+            logger.error(chalk.red('❌ Failed to start Tailscale Serve:'), error.message);
             logger.warn(
-              chalk.yellow('VibeTunnel will continue running, but Tailscale Serve is not available')
+              chalk.yellow(
+                '⚠️ VibeTunnel will continue running, but Tailscale Serve is not available'
+              )
             );
-            logger.log(chalk.blue('You can manually configure Tailscale Serve with:'));
-            logger.log(chalk.gray(`  tailscale serve ${actualPort}`));
+            logger.info(chalk.blue('💻 You can manually configure Tailscale Serve with:'));
+            logger.info(chalk.gray(`  tailscale serve ${actualPort}`));
           });
       }
 

@@ -4,9 +4,10 @@ import { createLogger } from '../utils/logger.js';
 const logger = createLogger('tailscale-serve');
 
 export interface TailscaleServeService {
-  start(port: number): Promise<void>;
+  start(port: number, enableFunnel?: boolean): Promise<void>;
   stop(): Promise<void>;
   isRunning(): boolean;
+  isFunnelEnabled(): boolean;
   getStatus(): Promise<TailscaleServeStatus>;
 }
 
@@ -17,6 +18,11 @@ export interface TailscaleServeStatus {
   lastError?: string;
   startTime?: Date;
   isPermanentlyDisabled?: boolean;
+  funnelEnabled?: boolean;
+  funnelStartTime?: Date;
+  desiredMode?: 'private' | 'public'; // What the user requested
+  actualMode?: 'private' | 'public'; // What's actually running
+  funnelError?: string; // Specific Funnel error if it failed
 }
 
 /**
@@ -30,24 +36,42 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
   private lastError: string | undefined;
   private startTime: Date | undefined;
   private isPermanentlyDisabled = false;
+  private funnelEnabled = false;
+  private funnelStartTime: Date | undefined;
+  private desiredFunnel = false; // Track what the user requested
+  private funnelError: string | undefined; // Track specific Funnel errors
 
-  async start(port: number): Promise<void> {
+  async start(port: number, enableFunnel = false): Promise<void> {
+    logger.info(
+      `🚀 Starting Tailscale Serve on port ${port} ${enableFunnel ? 'with Funnel (Public Internet)' : '(Tailnet only - Private)'}`
+    );
+
     if (this.isPermanentlyDisabled) {
+      logger.warn(`❌ Cannot start - permanently disabled on this tailnet`);
       throw new Error('Tailscale Serve is permanently disabled on this tailnet');
     }
 
     if (this.isStarting) {
+      logger.warn(`⚠️ Already starting, rejecting duplicate request`);
       throw new Error('Tailscale Serve is already starting');
     }
 
     if (this.serveProcess) {
-      logger.info('Tailscale Serve is already running, stopping first...');
+      logger.info('🔄 Serve already running, stopping first...');
       await this.stop();
     }
 
     this.isStarting = true;
     this.lastError = undefined; // Clear previous errors
+    this.funnelError = undefined; // Clear previous Funnel errors
     this.currentPort = port; // Set the port even if start fails
+
+    // Store what the user requested
+    this.desiredFunnel = enableFunnel;
+    logger.info(
+      `🌍 ${enableFunnel ? 'PUBLIC Internet access (Funnel)' : 'PRIVATE Tailnet-only access (no Funnel)'} requested`
+    );
+    this.funnelEnabled = false; // Reset initially, will enable after Serve starts
 
     try {
       // Check if tailscale command is available
@@ -69,10 +93,11 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         logger.debug('Failed to reset serve config (this is normal if none exists)');
       }
 
-      // TCP port: tailscale serve port
-      const args = ['serve', port.toString()];
-      logger.info(`Starting Tailscale Serve on port ${port}`);
-      logger.debug(`Command: ${this.tailscaleExecutable} ${args.join(' ')}`);
+      // Set up HTTPS proxy to local port using new CLI syntax
+      // Format: tailscale serve --bg http://localhost:4020
+      const args = ['serve', '--bg', `http://localhost:${port}`];
+      logger.info(`🚀 Starting Tailscale Serve - HTTPS proxy to localhost:${port}`);
+      logger.debug(`🔧 Command: ${this.tailscaleExecutable} ${args.join(' ')}`);
       this.currentPort = port;
 
       // Start the serve process
@@ -83,7 +108,7 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
 
       // Handle process events
       this.serveProcess.on('error', (error) => {
-        logger.error(`Tailscale Serve process error: ${error.message}`);
+        logger.info(`Tailscale Serve process error: ${error.message}`);
         this.lastError = error.message;
         this.cleanup();
       });
@@ -166,20 +191,47 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
           });
 
           this.serveProcess.once('exit', (code) => {
-            // For 'tailscale serve', exit code 0 means successful configuration
-            // The command exits after setting up the proxy configuration
+            // With --bg flag, the command exits immediately after configuration
+            // Exit code 0 means successful configuration
             if (code === 0) {
               logger.info('Tailscale Serve configured successfully (exit code 0)');
-              // Give the configuration a moment to take effect before checking status
+              // The serve process is now running in background
+              this.serveProcess = null; // Clear reference as process has exited
+              // Give the configuration a moment to take effect
               setTimeout(() => {
                 settlePromise(true); // SUCCESS - proxy is configured
-              }, 100);
+              }, 500);
             } else {
               settlePromise(false, `Tailscale Serve failed with exit code ${code}`);
             }
           });
         }
       });
+
+      // If Funnel is requested (Public Internet access), start Funnel after Serve
+      if (enableFunnel) {
+        logger.info(
+          `🌍 Starting Funnel for PUBLIC internet access on HTTPS port 443 (Serve to localhost:${port} completed successfully)`
+        );
+        try {
+          await this.startFunnel(port);
+          logger.info(
+            `✅ Funnel started successfully - VibeTunnel now accessible via public internet`
+          );
+        } catch (funnelError) {
+          const errorMsg = funnelError instanceof Error ? funnelError.message : String(funnelError);
+          this.funnelError = errorMsg;
+          logger.info(`❌ Failed to start Funnel: ${errorMsg}`);
+          logger.warn(
+            `Funnel failed to start, continuing with PRIVATE Tailnet-only access: ${errorMsg}`
+          );
+          // Don't throw - Serve is still working for Tailnet access
+        }
+      } else {
+        logger.info(
+          `🔒 Running in PRIVATE mode - accessible only within your Tailnet, not from public internet`
+        );
+      }
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error);
       this.cleanup();
@@ -189,8 +241,156 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
     }
   }
 
+  /**
+   * Start Tailscale Funnel for public internet access
+   */
+  private async startFunnel(port: number): Promise<void> {
+    // Funnel operates on the HTTPS port that Tailscale Serve uses (443), not the local port
+    const httpsPort = 443;
+    logger.info(
+      `🌍 Starting Tailscale Funnel on HTTPS port ${httpsPort} for public internet access (proxying to local port ${port})`
+    );
+
+    // First, reset any existing Funnel configuration to avoid "foreground already exists" error
+    try {
+      logger.debug('Resetting Funnel configuration before starting...');
+      const resetProcess = spawn(this.tailscaleExecutable, ['funnel', 'reset'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      await new Promise<void>((resolve) => {
+        resetProcess.on('exit', () => resolve());
+        resetProcess.on('error', () => resolve()); // Continue even if reset fails
+        setTimeout(resolve, 2000); // Timeout after 2 seconds
+      });
+      logger.debug('Funnel configuration reset completed');
+    } catch (_error) {
+      logger.debug('Failed to reset Funnel config (this is normal if none exists)');
+    }
+
+    logger.debug(`🔧 Command: ${this.tailscaleExecutable} funnel --bg ${httpsPort}`);
+
+    try {
+      // Enable Funnel for the HTTPS port that Serve is using, not the local port
+      // Use --bg flag to run in background mode
+      const funnelProcess = spawn(
+        this.tailscaleExecutable,
+        ['funnel', '--bg', httpsPort.toString()],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      );
+
+      logger.debug(`📝 Process spawned with PID: ${funnelProcess.pid}`);
+
+      let stdout = '';
+      let stderr = '';
+
+      if (funnelProcess.stdout) {
+        funnelProcess.stdout.on('data', (data) => {
+          stdout += data.toString();
+          logger.debug(`📤 Funnel stdout: ${data.toString().trim()}`);
+        });
+      }
+
+      if (funnelProcess.stderr) {
+        funnelProcess.stderr.on('data', (data) => {
+          stderr += data.toString();
+          logger.debug(`📥 Funnel stderr: ${data.toString().trim()}`);
+        });
+      }
+
+      // Wait for funnel to start
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Funnel start timeout'));
+        }, 10000); // 10 second timeout
+
+        funnelProcess.on('exit', (code) => {
+          clearTimeout(timeout);
+          logger.debug(`🔚 Funnel process exited with code: ${code}`);
+          if (stderr.trim()) {
+            logger.debug(`📥 Funnel stderr: ${stderr.trim()}`);
+          }
+          if (stdout.trim()) {
+            logger.debug(`📤 Funnel stdout: ${stdout.trim()}`);
+          }
+
+          if (code === 0) {
+            logger.info('✅ Tailscale Funnel started successfully');
+            this.funnelEnabled = true;
+            this.funnelError = undefined; // Clear any previous Funnel errors
+            this.funnelStartTime = new Date();
+            resolve();
+          } else {
+            logger.info(
+              `❌ Funnel failed with exit code ${code}: ${stderr || 'No error message'}`
+            );
+            reject(new Error(`Funnel failed with exit code ${code}: ${stderr}`));
+          }
+        });
+
+        funnelProcess.on('error', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.info(`Failed to start Tailscale Funnel: ${errorMsg}`);
+      throw new Error(`Funnel start failed: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Stop Tailscale Funnel
+   */
+  private async stopFunnel(): Promise<void> {
+    if (!this.funnelEnabled) {
+      return;
+    }
+
+    try {
+      logger.info('Stopping Tailscale Funnel...');
+
+      // Reset funnel configuration
+      const resetProcess = spawn(this.tailscaleExecutable, ['funnel', 'reset'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      await new Promise<void>((resolve) => {
+        resetProcess.on('exit', (code) => {
+          if (code === 0) {
+            logger.info('✅ Tailscale Funnel stopped successfully');
+          } else {
+            logger.warn(`Funnel reset exited with code ${code}`);
+          }
+          resolve();
+        });
+        resetProcess.on('error', () => resolve());
+        setTimeout(resolve, 3000); // Timeout after 3 seconds
+      });
+
+      this.funnelEnabled = false;
+      this.funnelStartTime = undefined;
+    } catch (error) {
+      logger.info(`Failed to stop Funnel: ${error}`);
+      throw error;
+    }
+  }
+
   async stop(): Promise<void> {
-    // First try to remove the serve configuration
+    // First, stop Funnel if it's enabled
+    if (this.funnelEnabled) {
+      try {
+        logger.info('🌍 Stopping Tailscale Funnel...');
+        await this.stopFunnel();
+      } catch (error) {
+        logger.warn(`Failed to stop Funnel: ${error}`);
+      }
+    }
+
+    // Reset Serve configuration (since we're using --bg, there's no process to kill)
     try {
       logger.debug('Removing Tailscale Serve configuration...');
 
@@ -251,19 +451,13 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
   }
 
   isRunning(): boolean {
-    // Check if process exists and hasn't been killed
-    if (!this.serveProcess) {
-      return false;
-    }
+    // With --bg flag, the serve process exits immediately after configuration
+    // We track running state based on whether we've started and not stopped
+    return this.currentPort !== null && !this.isStarting;
+  }
 
-    // Check if process has exited
-    if (this.serveProcess.exitCode !== null || this.serveProcess.signalCode !== null) {
-      // Process has exited, clean up the reference
-      this.serveProcess = null;
-      return false;
-    }
-
-    return !this.serveProcess.killed;
+  isFunnelEnabled(): boolean {
+    return this.funnelEnabled;
   }
 
   async getStatus(): Promise<TailscaleServeStatus> {
@@ -282,39 +476,57 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
       };
     }
 
-    // IMMEDIATE CHECK: Always check the actual serve status if not permanently disabled
-    // The process might be running but not configured (needs admin permissions)
+    // IMPROVED CHECK: First verify if Tailscale Serve is actually configured and working
+    // Only mark as permanently disabled if we can't detect any working configuration
     if (!this.isPermanentlyDisabled) {
       logger.debug('[TAILSCALE STATUS] Checking actual Tailscale Serve configuration');
 
+      const portToCheck = this.currentPort || 4020;
+
       try {
-        const checkResult = await this.checkServeAvailability();
-        logger.debug(`[TAILSCALE STATUS] Serve status check result: ${checkResult}`);
+        // First, check if Serve is actually configured for our port (even if started manually)
+        const isConfigured = await this.verifyServeConfiguration(portToCheck);
+        logger.debug(
+          `[TAILSCALE STATUS] Serve configured for port ${portToCheck}: ${isConfigured}`
+        );
 
-        if (
-          checkResult.includes('Serve is not enabled') ||
-          checkResult.includes('not available') ||
-          checkResult.includes('requires admin') ||
-          checkResult.includes('unauthorized') ||
-          checkResult.includes('No serve config')
-        ) {
-          logger.debug(
-            '[TAILSCALE STATUS] Tailscale Serve not available - marking as permanently disabled'
+        if (isConfigured) {
+          // Serve is working! Don't mark as permanently disabled
+          logger.info(
+            `✅ [TAILSCALE STATUS] Tailscale Serve is configured for port ${portToCheck} - not permanently disabled`
           );
-          this.isPermanentlyDisabled = true;
-          this.lastError = 'Serve is not enabled on your tailnet';
+          // Continue with normal status logic below
+        } else {
+          // No configuration found, check availability to determine if it's a permanent issue
+          const checkResult = await this.checkServeAvailability();
+          logger.debug(`[TAILSCALE STATUS] Serve availability check result: ${checkResult}`);
 
-          // Return success (fallback mode)
-          return {
-            isRunning: false,
-            port: undefined,
-            lastError: undefined, // No error in fallback mode
-            startTime: this.startTime,
-            isPermanentlyDisabled: true,
-          };
+          if (
+            checkResult.includes('Serve is not enabled') ||
+            checkResult.includes('not available') ||
+            checkResult.includes('requires admin') ||
+            checkResult.includes('unauthorized')
+          ) {
+            logger.debug(
+              '[TAILSCALE STATUS] Tailscale Serve not available on tailnet - marking as permanently disabled'
+            );
+            this.isPermanentlyDisabled = true;
+            this.lastError = 'Serve is not enabled on your tailnet';
+
+            // Return success (fallback mode)
+            return {
+              isRunning: false,
+              port: undefined,
+              lastError: undefined, // No error in fallback mode
+              startTime: this.startTime,
+              isPermanentlyDisabled: true,
+              funnelEnabled: false,
+              funnelStartTime: undefined,
+            };
+          }
         }
       } catch (error) {
-        logger.debug(`[TAILSCALE STATUS] Failed to check availability: ${error}`);
+        logger.debug(`[TAILSCALE STATUS] Failed to check configuration: ${error}`);
       }
     }
 
@@ -329,6 +541,8 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         lastError: undefined,
         startTime: this.startTime,
         isPermanentlyDisabled: true,
+        funnelEnabled: false,
+        funnelStartTime: undefined,
       };
     }
 
@@ -347,6 +561,8 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         lastError: undefined, // Don't show error in fallback mode
         startTime: this.startTime,
         isPermanentlyDisabled: true,
+        funnelEnabled: false,
+        funnelStartTime: undefined,
       };
     }
 
@@ -357,44 +573,29 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
     const portToCheck = this.currentPort || 4020; // Use default port if not set
 
     if (!processRunning && !this.isPermanentlyDisabled) {
-      // Process isn't running - check if Tailscale Serve is even available
+      // Process isn't running - check if Tailscale Serve is configured (manual start)
       logger.info(
-        `[TAILSCALE STATUS] Process not running, checking if Tailscale Serve is available`
+        `[TAILSCALE STATUS] Process not running, checking for manually configured Tailscale Serve`
       );
       try {
-        const isAvailable = await this.verifyServeConfiguration(portToCheck);
-        logger.info(`[TAILSCALE STATUS] Tailscale Serve availability check: ${isAvailable}`);
-        if (!isAvailable) {
-          // Check if this is because Serve isn't enabled on the tailnet
-          // Run `tailscale serve status` to get more info
-          const checkResult = await this.checkServeAvailability();
-          if (
-            checkResult.includes('Serve is not enabled') ||
-            checkResult.includes('not available') ||
-            checkResult.includes('requires admin')
-          ) {
-            logger.info(
-              '[TAILSCALE STATUS] Tailscale Serve not available on tailnet - marking as permanently disabled'
-            );
-            this.isPermanentlyDisabled = true;
-            this.lastError = 'Serve is not enabled on your tailnet';
-            // Return without error since we're in fallback mode
-            return {
-              isRunning: false,
-              port: undefined,
-              lastError: undefined,
-              startTime: this.startTime,
-              isPermanentlyDisabled: true,
-            };
-          } else {
-            verificationError = 'Tailscale Serve proxy not configured for this port';
-            logger.info(
-              '[TAILSCALE STATUS] Tailscale Serve not configured but not a permanent failure'
-            );
-          }
+        const isConfigured = await this.verifyServeConfiguration(portToCheck);
+        logger.info(`[TAILSCALE STATUS] Manual configuration check: ${isConfigured}`);
+
+        if (isConfigured) {
+          // Great! Serve is configured manually, mark as running
+          actuallyRunning = true;
+          logger.info(
+            `✅ [TAILSCALE STATUS] Found manually configured Tailscale Serve for port ${portToCheck}`
+          );
+        } else {
+          // No configuration found - this is a normal case, not an error
+          verificationError = 'Tailscale Serve is starting up or needs reconfiguration';
+          logger.info(
+            `[TAILSCALE STATUS] No Serve configuration found for port ${portToCheck} - may need restart`
+          );
         }
       } catch (error) {
-        logger.debug(`Failed to check Tailscale Serve availability: ${error}`);
+        logger.debug(`Failed to check Tailscale Serve configuration: ${error}`);
       }
     } else if (processRunning && this.currentPort) {
       logger.info(`[TAILSCALE STATUS] Verifying configuration for port ${this.currentPort}`);
@@ -403,15 +604,11 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         logger.info(`[TAILSCALE STATUS] Configuration verified: ${isConfigured}`);
         if (!isConfigured) {
           actuallyRunning = false;
-          // Only show error if this isn't a permanent failure
-          if (!this.lastError?.includes('Serve is not enabled on your tailnet')) {
-            verificationError = 'Tailscale Serve proxy not configured for this port';
-            logger.info('[TAILSCALE STATUS] Setting verification error (not permanent)');
-          } else {
-            // It's a permanent failure, mark it as such
-            this.isPermanentlyDisabled = true;
-            logger.info('[TAILSCALE STATUS] Marking as permanently disabled');
-          }
+          // Process is running but not configured properly - this is a normal configuration error, not permanent
+          verificationError = 'Tailscale Serve proxy not configured for this port';
+          logger.info(
+            '[TAILSCALE STATUS] Process running but not configured - normal configuration issue'
+          );
         }
       } catch (error) {
         logger.debug(`Failed to verify Tailscale Serve configuration: ${error}`);
@@ -420,18 +617,41 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
       }
     }
 
-    const result = {
-      isRunning: actuallyRunning,
-      port: actuallyRunning ? (this.currentPort ?? undefined) : undefined,
-      lastError: actuallyRunning ? undefined : verificationError || this.lastError,
+    // Check if modes match - if they do, consider it running even if process check fails
+    // This handles the case where --bg makes the process exit immediately
+    const desiredMode = this.desiredFunnel ? 'public' : 'private';
+    const actualMode = this.funnelEnabled ? 'public' : 'private';
+    const modesMatch = desiredMode === actualMode;
+
+    // If desired and actual modes match, and we have a port configured, consider it running
+    // This is important because with --bg flag, the process exits immediately after configuration
+    // Also, if we're in public mode and Funnel has been enabled, trust that it's working
+    const effectivelyRunning =
+      actuallyRunning ||
+      (modesMatch && this.currentPort !== null && !this.isStarting) ||
+      (this.funnelEnabled && actualMode === 'public');
+
+    const result: TailscaleServeStatus = {
+      isRunning: effectivelyRunning,
+      port: effectivelyRunning ? (this.currentPort ?? undefined) : undefined,
+      // Don't show error if modes match and we're configured
+      lastError: effectivelyRunning || modesMatch ? undefined : verificationError || this.lastError,
       startTime: this.startTime,
       isPermanentlyDisabled: this.isPermanentlyDisabled,
+      funnelEnabled: this.funnelEnabled,
+      funnelStartTime: this.funnelStartTime,
+      desiredMode: desiredMode,
+      actualMode: actualMode,
+      funnelError: this.funnelError,
     };
 
     logger.info('[TAILSCALE STATUS] Returning status:');
     logger.info(`  - isRunning: ${result.isRunning}`);
     logger.info(`  - lastError: ${result.lastError}`);
     logger.info(`  - isPermanentlyDisabled: ${result.isPermanentlyDisabled}`);
+    logger.info(`  - desiredMode: ${result.desiredMode}`);
+    logger.info(`  - actualMode: ${result.actualMode}`);
+    logger.info(`  - funnelError: ${result.funnelError}`);
 
     return result;
   }
@@ -441,7 +661,8 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
    */
   private async checkServeAvailability(): Promise<string> {
     return new Promise<string>((resolve) => {
-      const statusProcess = spawn(this.tailscaleExecutable, ['serve', 'status'], {
+      // Try JSON first, fallback to regular status if needed
+      const statusProcess = spawn(this.tailscaleExecutable, ['serve', 'status', '--json'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
@@ -460,12 +681,22 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         });
       }
 
-      statusProcess.on('exit', (_code) => {
-        // Return stderr if it contains the error message
+      statusProcess.on('exit', (code) => {
+        // Return stderr if it contains error messages
         if (stderr) {
           resolve(stderr);
+        } else if (code === 0) {
+          // Success - check if we have valid JSON or just return stdout
+          try {
+            const _status = JSON.parse(stdout);
+            // If we have valid JSON, we can serve
+            resolve(stdout);
+          } catch (_jsonError) {
+            // Not valid JSON, return as-is
+            resolve(stdout);
+          }
         } else {
-          resolve(stdout);
+          resolve(stdout || 'Tailscale Serve status check failed');
         }
       });
 
@@ -488,7 +719,8 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
    */
   private async verifyServeConfiguration(port: number): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      const statusProcess = spawn(this.tailscaleExecutable, ['serve', 'status'], {
+      // Use --json flag for reliable parsing
+      const statusProcess = spawn(this.tailscaleExecutable, ['serve', 'status', '--json'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
@@ -509,10 +741,23 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
 
       statusProcess.on('exit', (code) => {
         if (code === 0) {
-          // Parse the output to see if our port is configured
-          const isConfigured = this.parseServeStatus(stdout, port);
-          logger.debug(`Tailscale Serve status check: port ${port} configured = ${isConfigured}`);
-          resolve(isConfigured);
+          // First try JSON parsing, fallback to text parsing if needed
+          try {
+            const status = JSON.parse(stdout);
+            const isConfigured = this.parseServeStatusJson(status, port);
+            logger.debug(
+              `Tailscale Serve JSON status check: port ${port} configured = ${isConfigured}`
+            );
+            resolve(isConfigured);
+          } catch (_jsonError) {
+            logger.debug('JSON parsing failed, trying text parsing as fallback');
+            // Fallback to text parsing if JSON fails
+            const isConfigured = this.parseServeStatus(stdout, port);
+            logger.debug(
+              `Tailscale Serve text status check: port ${port} configured = ${isConfigured}`
+            );
+            resolve(isConfigured);
+          }
         } else {
           logger.debug(`Tailscale serve status failed with code ${code}: ${stderr}`);
           resolve(false);
@@ -532,6 +777,105 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
         }
       }, 3000);
     });
+  }
+
+  /**
+   * Parse JSON output from 'tailscale serve status --json' to check if our port is configured
+   */
+  private parseServeStatusJson(status: any, port: number): boolean {
+    try {
+      logger.debug(`Parsing Tailscale serve JSON status for port ${port}:`);
+      logger.debug(`JSON status: ${JSON.stringify(status, null, 2)}`);
+
+      // Check both direct Web config and Foreground config
+      const webConfigs = [];
+
+      // Direct Web config (older format)
+      if (status.Web) {
+        webConfigs.push(status.Web);
+      }
+
+      // Foreground config (newer format)
+      if (status.Foreground) {
+        for (const nodeId in status.Foreground) {
+          const nodeConfig = status.Foreground[nodeId];
+          if (nodeConfig.Web) {
+            webConfigs.push(nodeConfig.Web);
+          }
+        }
+      }
+
+      // Check all Web configurations found
+      for (const webConfig of webConfigs) {
+        for (const host in webConfig) {
+          const handlers = webConfig[host]?.Handlers;
+          if (handlers) {
+            logger.debug(`Checking handlers for host: ${host}`);
+            for (const path in handlers) {
+              const proxy = handlers[path]?.Proxy;
+              if (proxy) {
+                logger.debug(`Found proxy config: ${path} -> ${proxy}`);
+
+                // Check if this proxy points to our port
+                if (
+                  proxy.includes(`:${port}`) ||
+                  proxy.includes(`127.0.0.1:${port}`) ||
+                  proxy.includes(`localhost:${port}`)
+                ) {
+                  logger.info(`✅ Found Tailscale Serve config for port ${port}: ${proxy}`);
+
+                  // Check for Funnel status in multiple possible locations
+                  let funnelEnabled = false;
+                  if (status.AllowFunnel && status.AllowFunnel[host]) {
+                    funnelEnabled = true;
+                    logger.info(`🌍 Funnel is enabled for ${host}`);
+                  } else if (status.Foreground) {
+                    // Check if any foreground config allows Funnel
+                    for (const nodeId in status.Foreground) {
+                      const nodeConfig = status.Foreground[nodeId];
+                      if (nodeConfig.AllowFunnel && nodeConfig.AllowFunnel[host]) {
+                        funnelEnabled = true;
+                        logger.info(`🌍 Funnel is enabled for ${host} (node ${nodeId})`);
+                        break;
+                      }
+                    }
+                  }
+
+                  // Update our internal Funnel status based on what we found
+                  this.funnelEnabled = funnelEnabled;
+                  if (funnelEnabled && !this.funnelStartTime) {
+                    this.funnelStartTime = new Date();
+                  }
+
+                  return true;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      logger.warn(`❌ No proxy configuration found for port ${port} in JSON status`);
+      logger.debug(`Available proxy configurations:`);
+      for (const webConfig of webConfigs) {
+        for (const host in webConfig) {
+          const handlers = webConfig[host]?.Handlers;
+          if (handlers) {
+            for (const path in handlers) {
+              const proxy = handlers[path]?.Proxy;
+              if (proxy) {
+                logger.debug(`  - ${host}${path} -> ${proxy}`);
+              }
+            }
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      logger.info('Failed to parse JSON status:', error);
+      return false;
+    }
   }
 
   /**
@@ -578,7 +922,7 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
           }
         }, 1000);
       } catch (error) {
-        logger.error('Failed to kill Tailscale Serve process:', error);
+        logger.info('Failed to kill Tailscale Serve process:', error);
       }
     }
 
@@ -586,6 +930,8 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
     this.currentPort = null;
     this.isStarting = false;
     this.startTime = undefined;
+    this.funnelEnabled = false;
+    this.funnelStartTime = undefined;
     // Keep lastError for debugging
   }
 

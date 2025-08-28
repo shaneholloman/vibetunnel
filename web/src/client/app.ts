@@ -441,6 +441,27 @@ export class VibeTunnelApp extends LitElement {
         // Check if user is authenticated via Tailscale
         if (authConfig.tailscaleAuth && authConfig.authenticatedUser) {
           logger.log('🔒 Authenticated via Tailscale:', authConfig.authenticatedUser);
+
+          // Fetch JWT token for WebSocket authentication
+          try {
+            logger.log('🎟️ Fetching WebSocket token for Tailscale user...');
+            const tokenResponse = await fetch('/api/auth/tailscale-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (tokenResponse.ok) {
+              const tokenData = await tokenResponse.json();
+              // Store token for WebSocket connections using the same key as other auth methods
+              localStorage.setItem('vibetunnel_auth_token', tokenData.token);
+              logger.log('✅ WebSocket token stored for Tailscale user');
+            } else {
+              logger.warn('⚠️ Failed to fetch WebSocket token, sessions may not load properly');
+            }
+          } catch (tokenError) {
+            logger.warn('⚠️ Error fetching WebSocket token:', tokenError);
+          }
+
           this.isAuthenticated = true;
           this.currentView = 'list';
           await this.initializeServices(noAuthEnabled); // Initialize services with no-auth flag

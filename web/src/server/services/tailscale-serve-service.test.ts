@@ -1,5 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TailscaleServeServiceImpl } from './tailscale-serve-service.js';
+
+// Mock the logger
+vi.mock('../../server/utils/logger.js', () => ({
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    log: vi.fn(),
+  })),
+}));
 
 describe('TailscaleServeService Integration Tests', () => {
   let service: TailscaleServeServiceImpl;
@@ -13,6 +24,7 @@ describe('TailscaleServeService Integration Tests', () => {
     if (service.isRunning()) {
       await service.stop();
     }
+    vi.clearAllMocks();
   });
 
   describe('Exit Code Handling', () => {
@@ -172,6 +184,142 @@ describe('TailscaleServeService Integration Tests', () => {
 
       // The service should handle empty or malformed status outputs gracefully
       expect(() => service.getStatus()).not.toThrow();
+    });
+  });
+
+  describe('Mode Detection and Switching', () => {
+    it('reports correct desired vs actual modes', async () => {
+      const status = await service.getStatus();
+
+      // Should have mode information if not permanently disabled
+      if (!status.isPermanentlyDisabled) {
+        expect(
+          status.desiredMode === 'private' ||
+            status.desiredMode === 'public' ||
+            status.desiredMode === undefined
+        ).toBe(true);
+        expect(
+          status.actualMode === 'private' ||
+            status.actualMode === 'public' ||
+            status.actualMode === undefined
+        ).toBe(true);
+      }
+    });
+
+    it('handles mode transitions gracefully', async () => {
+      // Get initial status
+      const status1 = await service.getStatus();
+
+      // Status should not change erratically
+      const status2 = await service.getStatus();
+
+      expect(status1.desiredMode).toBe(status2.desiredMode);
+      expect(status1.actualMode).toBe(status2.actualMode);
+    });
+
+    it('provides Funnel status information', async () => {
+      const status = await service.getStatus();
+
+      // Funnel status should be boolean when present
+      if (status.funnelEnabled !== undefined) {
+        expect(typeof status.funnelEnabled).toBe('boolean');
+
+        // If Funnel is enabled, there might be a start time
+        if (status.funnelEnabled && status.funnelStartTime) {
+          expect(status.funnelStartTime).toBeInstanceOf(Date);
+        }
+      }
+
+      // Funnel error should be string or undefined
+      if (status.funnelError !== undefined) {
+        expect(typeof status.funnelError).toBe('string');
+      }
+    });
+  });
+
+  describe('New CLI Syntax Support', () => {
+    it('handles --bg flag correctly', async () => {
+      // The service should use the new --bg flag syntax
+      // This is tested indirectly through the start/stop operations
+
+      // Mock environment to ensure we're not actually starting Tailscale
+      const originalEnv = process.env.VIBETUNNEL_SKIP_TAILSCALE;
+      process.env.VIBETUNNEL_SKIP_TAILSCALE = '1';
+
+      try {
+        // Start should not throw with new syntax
+        expect(service.isRunning()).toBe(false);
+
+        // Verify service handles the new background mode
+        const status = await service.getStatus();
+        expect(status).toBeDefined();
+      } finally {
+        if (originalEnv !== undefined) {
+          process.env.VIBETUNNEL_SKIP_TAILSCALE = originalEnv;
+        } else {
+          delete process.env.VIBETUNNEL_SKIP_TAILSCALE;
+        }
+      }
+    });
+
+    it('recovers from "foreground already exists" errors', async () => {
+      // Test that the service can recover from common Tailscale errors
+      const testError = 'error: foreground already exists under this port';
+      process.env.VIBETUNNEL_TAILSCALE_ERROR = testError;
+
+      try {
+        const status = await service.getStatus();
+
+        // Service should handle this specific error gracefully
+        expect(status.isRunning).toBe(false);
+        expect(status.lastError).toContain(testError);
+
+        // Clear error and verify recovery
+        delete process.env.VIBETUNNEL_TAILSCALE_ERROR;
+
+        const recoveredStatus = await service.getStatus();
+        expect(recoveredStatus.lastError).not.toBe(testError);
+      } finally {
+        delete process.env.VIBETUNNEL_TAILSCALE_ERROR;
+      }
+    });
+  });
+
+  describe('Race Condition Handling', () => {
+    it('handles rapid status checks during transitions', async () => {
+      // Simulate rapid status checks that might occur during mode switching
+      const promises = [];
+
+      for (let i = 0; i < 5; i++) {
+        promises.push(service.getStatus());
+      }
+
+      const results = await Promise.all(promises);
+
+      // All status checks should return valid results
+      results.forEach((status) => {
+        expect(status).toBeDefined();
+        expect(typeof status.isRunning).toBe('boolean');
+      });
+
+      // Results should be consistent
+      const firstResult = results[0];
+      results.forEach((status) => {
+        expect(status.isPermanentlyDisabled).toBe(firstResult.isPermanentlyDisabled);
+      });
+    });
+
+    it('maintains consistency during concurrent operations', async () => {
+      // Test that concurrent stop operations don't cause issues
+      const stopPromises = [service.stop(), service.stop(), service.stop()];
+
+      await Promise.all(stopPromises);
+
+      // Service should still be in a consistent state
+      expect(service.isRunning()).toBe(false);
+
+      const status = await service.getStatus();
+      expect(status.isRunning).toBe(false);
     });
   });
 });

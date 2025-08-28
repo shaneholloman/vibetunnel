@@ -56,6 +56,7 @@ export const VERBOSITY_MAP: Record<string, VerbosityLevel> = {
 } as const;
 
 // Current verbosity level
+// Default to ERROR to minimize console output
 let verbosityLevel: VerbosityLevel = VerbosityLevel.ERROR;
 
 // Debug mode flag (kept for backward compatibility)

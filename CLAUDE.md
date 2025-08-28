@@ -347,6 +347,36 @@ The project includes `poltergeist.config.json` which configures:
 
 To enable iOS builds, edit `poltergeist.config.json` and set `"enabled": true` for the vibetunnel-ios target.
 
+## Tailscale CLI Updates (as of August 2025)
+
+The Tailscale CLI has changed its syntax. The new commands are:
+
+### Tailscale Serve (HTTPS proxy to local services)
+```bash
+# OLD syntax (deprecated):
+tailscale serve https / http://localhost:4020
+
+# NEW syntax:
+tailscale serve --bg http://localhost:4020
+```
+
+The `--bg` flag runs the serve configuration in background mode. The process exits immediately after configuration.
+
+### Tailscale Funnel (Public internet access)
+```bash
+# Reset any existing configuration first
+tailscale funnel reset
+
+# Enable funnel (still uses --bg flag)
+tailscale funnel --bg 443
+```
+
+### Important Notes:
+- The `tailscale serve --bg` command exits immediately with code 0 on success
+- There's no long-running process to monitor after using --bg
+- HTTPS is automatically configured on port 443
+- Always reset Funnel before starting to avoid "foreground already exists" errors
+
 ## Key Files Quick Reference
 
 - Architecture Details: `docs/ARCHITECTURE.md`

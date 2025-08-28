@@ -171,6 +171,13 @@ export class AuthService {
   }
 
   /**
+   * Generate JWT token (public wrapper for Tailscale auth)
+   */
+  generateTokenForUser(userId: string): string {
+    return this.generateToken(userId);
+  }
+
+  /**
    * Generate JWT token
    */
   private generateToken(userId: string): string {

@@ -13,29 +13,73 @@ final class TailscaleServeStatusService {
     var startTime: Date?
     var isLoading = false
     var isPermanentlyDisabled = false
+    var funnelEnabled = false
+    var funnelStartTime: Date?
+    var desiredMode: String?
+    var actualMode: String?
+    var funnelError: String?
 
     private let logger = Logger(subsystem: BundleIdentifiers.loggerSubsystem, category: "TailscaleServeStatus")
     private var updateTimer: Timer?
     private var isCurrentlyFetching = false
+    private var lastKnownMode: Bool? // Track the last known Funnel mode to detect switches
 
     private init() {}
 
     /// Start polling for status updates
     func startMonitoring() {
         logger.debug("Starting Tailscale Serve status monitoring")
+        // Check current mode and detect switches
+        let currentMode = UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.tailscaleFunnelEnabled)
+        let modeChanged = lastKnownMode != nil && lastKnownMode != currentMode
+        lastKnownMode = currentMode
 
-        // Initial fetch
-        Task {
-            await self.fetchStatus()
+        if modeChanged {
+            logger
+                .info(
+                    "[TAILSCALE STATUS] Mode switch detected: \(self.lastKnownMode == true ? "Private->Public" : "Public->Private")"
+                )
         }
 
-        // Set up less aggressive periodic updates - only if not currently fetching and not permanently disabled
+        // Initial fetch - show spinner for initial load
+        Task {
+            // Small delay to let server start
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
+            // First fetch shows spinner
+            await fetchStatus(silent: false)
+
+            // Do rapid silent checks to catch up quickly (for any mode switch or startup)
+            if lastError != nil || !isRunning {
+                logger.info("[TAILSCALE STATUS] Performing rapid status checks")
+                for i in 1...5 {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // Check every 2 seconds
+                    logger.info("[TAILSCALE STATUS] Rapid check \(i)/5")
+                    await fetchStatus(silent: true) // Silent background check
+                    // Stop checking if we're now running successfully
+                    if isRunning && lastError == nil {
+                        logger.info("[TAILSCALE STATUS] Tailscale ready!")
+                        break
+                    }
+                }
+            }
+        }
+
+        // Set up periodic updates - less aggressive and always silent
         updateTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, !self.isCurrentlyFetching, !self.isPermanentlyDisabled else {
                     return
                 }
-                await self.fetchStatus()
+
+                // Check if there's an error or not running (silent check)
+                if !self.isRunning || self.lastError != nil {
+                    await self.fetchStatus(silent: true)
+                }
+                // Also do periodic checks even when running (less frequent)
+                else if Int.random(in: 0..<3) == 0 { // About every 30 seconds when running OK
+                    await self.fetchStatus(silent: true)
+                }
             }
         }
     }
@@ -52,12 +96,27 @@ final class TailscaleServeStatusService {
     /// Force an immediate status update (useful after server operations)
     func refreshStatusImmediately() async {
         logger.debug("Forcing immediate Tailscale Serve status refresh")
-        await fetchStatus()
+        await fetchStatus(silent: false) // Show spinner for user-initiated refresh
+    }
+
+    /// Handle mode switch by doing rapid checks
+    func handleModeSwitch() async {
+        logger.info("[TAILSCALE STATUS] Handling mode switch with rapid checks")
+        // Do rapid silent checks to catch up with new mode
+        for i in 1...3 {
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+            await fetchStatus(silent: true)
+            if isRunning && lastError == nil {
+                logger.info("[TAILSCALE STATUS] Mode switch complete")
+                break
+            }
+        }
     }
 
     /// Fetch the current Tailscale Serve status
+    /// - Parameter silent: If true, won't show loading spinner (for background checks)
     @MainActor
-    func fetchStatus() async {
+    func fetchStatus(silent: Bool = false) async {
         // Prevent concurrent fetches
         guard !isCurrentlyFetching else {
             logger.debug("Skipping fetch - already in progress")
@@ -65,9 +124,14 @@ final class TailscaleServeStatusService {
         }
 
         isCurrentlyFetching = true
-        isLoading = true
+        // Only show loading spinner for user-initiated actions
+        if !silent {
+            isLoading = true
+        }
         defer {
-            isLoading = false
+            if !silent {
+                isLoading = false
+            }
             isCurrentlyFetching = false
         }
 
@@ -129,6 +193,7 @@ final class TailscaleServeStatusService {
             logger.info("  - isRunning: \(status.isRunning)")
             logger.info("  - lastError: \(status.lastError ?? "none")")
             logger.info("  - isPermanentlyDisabled: \(status.isPermanentlyDisabled ?? false)")
+            logger.info("  - funnelEnabled: \(status.funnelEnabled ?? false)")
             logger.info("  - Previous isPermanentlyDisabled: \(self.isPermanentlyDisabled)")
 
             // Check if this is a permanent failure (tailnet not configured)
@@ -153,13 +218,23 @@ final class TailscaleServeStatusService {
             // Update published properties
             let oldRunning = isRunning
             let oldError = lastError
+            let oldFunnelEnabled = funnelEnabled
             isRunning = status.isRunning
             lastError = status.lastError
             startTime = status.startTime
+            funnelEnabled = status.funnelEnabled ?? false
+            funnelStartTime = status.funnelStartTime
+            desiredMode = status.desiredMode
+            actualMode = status.actualMode
+            funnelError = status.funnelError
 
             logger.info("📝 [TAILSCALE STATUS] State changed:")
             logger.info("  - isRunning: \(oldRunning) -> \(self.isRunning)")
             logger.info("  - lastError: \(oldError ?? "none") -> \(self.lastError ?? "none")")
+            logger.info("  - funnelEnabled: \(oldFunnelEnabled) -> \(self.funnelEnabled)")
+            logger.info("  - desiredMode: \(self.desiredMode ?? "none")")
+            logger.info("  - actualMode: \(self.actualMode ?? "none")")
+            logger.info("  - funnelError: \(self.funnelError ?? "none")")
             logger.info("  - isPermanentlyDisabled: \(self.isPermanentlyDisabled)")
 
             logger
@@ -207,4 +282,9 @@ struct TailscaleServeStatus: Codable {
     let lastError: String?
     let startTime: Date?
     let isPermanentlyDisabled: Bool?
+    let funnelEnabled: Bool?
+    let funnelStartTime: Date?
+    let desiredMode: String? // "private" or "public"
+    let actualMode: String? // "private" or "public"
+    let funnelError: String? // Specific Funnel error if it failed
 }

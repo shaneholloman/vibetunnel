@@ -187,7 +187,7 @@ The server runs as a standalone Node.js executable with embedded modules, provid
 
 **How it works**: Tailscale creates an encrypted WireGuard tunnel between your devices, allowing them to communicate as if they were on the same local network, regardless of their physical location.
 
-**Setup Guide**:
+#### Basic Setup
 1. Install Tailscale on your Mac: [Download from Mac App Store](https://apps.apple.com/us/app/tailscale/id1475387142) or [Direct Download](https://tailscale.com/download/macos)
 2. Install Tailscale on your remote device:
    - **iOS**: [Download from App Store](https://apps.apple.com/us/app/tailscale/id1470499037)
@@ -198,17 +198,67 @@ The server runs as a standalone Node.js executable with embedded modules, provid
 5. Find your Mac's Tailscale hostname in the Tailscale menu bar app (e.g., `my-mac.tailnet-name.ts.net`)
 6. Access VibeTunnel at `http://[your-tailscale-hostname]:4020`
 
+#### Enhanced Tailscale Features
+
+VibeTunnel now supports advanced Tailscale integration with **Private** and **Public** access modes:
+
+##### Private Mode (Default)
+- **What it does**: Provides secure HTTPS access within your Tailscale network only
+- **Access URL**: `https://[your-machine-name].[tailnet-name].ts.net`
+- **Security**: Traffic stays within your private tailnet
+- **Best for**: Personal use, accessing your terminals from your own devices
+
+##### Public Mode (Tailscale Funnel)
+- **What it does**: Exposes VibeTunnel to the public internet via Tailscale Funnel
+- **Access URL**: Same as Private mode but accessible from anywhere
+- **Security**: Still uses HTTPS encryption, but accessible without Tailscale login
+- **Best for**: Sharing terminal sessions with colleagues, temporary public access
+- **Requirements**: Funnel must be enabled on your tailnet (see configuration below)
+
+#### Configuring Tailscale Funnel
+
+To use Public mode, you need to enable Funnel on your tailnet:
+
+1. **Enable Funnel for your tailnet** by adding this ACL policy in the [Tailscale Admin Console](https://login.tailscale.com/admin/acls):
+   ```json
+   "nodeAttrs": [
+       {
+           "target": ["autogroup:member"], // All members of your tailnet
+           "attr":   ["funnel"], 
+       },
+   ],
+   ```
+
+2. **Switch between modes** in VibeTunnel:
+   - Open VibeTunnel Settings → Remote Access
+   - Toggle between "Private (Tailnet Only)" and "Public (Internet)"
+   - The UI will show the transition status and confirm when the mode is active
+
+#### HTTPS Support
+
+Both Private and Public modes automatically provide **HTTPS access**:
+- Tailscale Serve creates an HTTPS proxy to VibeTunnel's local server
+- SSL certificates are managed automatically by Tailscale
+- No manual certificate configuration needed
+- WebSocket connections work seamlessly over HTTPS/WSS
+
 **Benefits**:
-- End-to-end encrypted traffic
-- No public internet exposure
-- Works behind NAT and firewalls
-- Zero configuration after initial setup
+- **End-to-end encrypted** traffic
+- **Automatic HTTPS** with valid certificates  
+- **Works behind NAT** and firewalls
+- **Zero configuration** after initial setup
+- **Flexible access control** - choose between private tailnet or public internet access
+- **No port forwarding** required
 
-**Note about "Fallback" Mode**: If you see "Tailscale Serve unavailable - using fallback mode" in the settings, this is normal and not an error. VibeTunnel supports two Tailscale access methods:
-- **Tailscale Serve**: An optional reverse proxy feature (requires tailnet admin permissions)
-- **Direct Tailscale Access** (Fallback): Standard Tailscale connectivity that works for all users
+#### Troubleshooting
 
-Both methods provide secure access. The "fallback" simply means you're using the standard direct access method, which is perfectly fine for most users.
+**"Tailscale Serve unavailable - using fallback mode"**: This is normal if you don't have Tailscale admin permissions. VibeTunnel will work perfectly using direct HTTP access at `http://[your-tailscale-hostname]:4020`.
+
+**"Applying mode configuration..."**: When switching between Private and Public modes, it may take a few seconds for Tailscale to reconfigure. This is normal.
+
+**"Funnel requires admin permissions"**: You need to be a tailnet admin to enable Funnel. Contact your tailnet admin or create your own tailnet if needed.
+
+**WebSocket connections fail**: Make sure you're using the HTTPS URL when accessing VibeTunnel through Tailscale Serve. The WebSocket authentication tokens are automatically handled.
 
 ### Option 2: ngrok
 

@@ -202,6 +202,42 @@ export function createAuthRoutes(config: AuthRoutesConfig): Router {
   });
 
   /**
+   * Get JWT token for Tailscale authenticated users (for WebSocket auth)
+   * POST /api/auth/tailscale-token
+   */
+  router.post('/tailscale-token', (req: AuthenticatedRequest, res) => {
+    try {
+      // Only allow Tailscale-authenticated users to get tokens
+      if (req.authMethod !== 'tailscale') {
+        return res.status(401).json({
+          error: 'This endpoint is only available for Tailscale authenticated users',
+        });
+      }
+
+      if (!req.userId) {
+        return res.status(401).json({
+          error: 'No user ID found in Tailscale authentication',
+        });
+      }
+
+      // Generate a JWT token for WebSocket authentication
+      // Use the private generateToken method via a wrapper in AuthService
+      const token = authService.generateTokenForUser(req.userId);
+
+      res.json({
+        success: true,
+        token,
+        userId: req.userId,
+        authMethod: 'tailscale',
+        expiresIn: '24h',
+      });
+    } catch (error) {
+      console.error('Error generating Tailscale token:', error);
+      res.status(500).json({ error: 'Failed to generate token' });
+    }
+  });
+
+  /**
    * Get user avatar (macOS only)
    * GET /api/auth/avatar/:userId
    */
