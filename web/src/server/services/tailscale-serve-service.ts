@@ -268,14 +268,14 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
       logger.debug('Failed to reset Funnel config (this is normal if none exists)');
     }
 
-    logger.debug(`🔧 Command: ${this.tailscaleExecutable} funnel --bg ${httpsPort}`);
+    logger.debug(`🔧 Command: ${this.tailscaleExecutable} funnel --bg --https=${httpsPort} http://localhost:${port}`);
 
     try {
-      // Enable Funnel for the HTTPS port that Serve is using, not the local port
-      // Use --bg flag to run in background mode
+      // Enable Funnel with the correct proxy target
+      // Must specify the full target URL to avoid overriding the proxy destination
       const funnelProcess = spawn(
         this.tailscaleExecutable,
-        ['funnel', '--bg', httpsPort.toString()],
+        ['funnel', '--bg', '--https=' + httpsPort, `http://localhost:${port}`],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
         }
