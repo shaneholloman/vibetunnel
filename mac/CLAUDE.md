@@ -470,6 +470,11 @@ The VibeTunnel server runs on localhost:4020 by default. To test the web interfa
 3. Use Playwright MCP to test integration between components
 4. Monitor all logs with `vtlog -f` during development
 
+## Tailscale Integration Notes
+
+### Known Issue: Tailscale IP Command
+The `tailscale ip -4` command may return error messages instead of an IP address when the Tailscale GUI has issues starting. Always validate the output is a valid IPv4 address (4 numbers between 0-255 separated by dots) before using it. The TailscaleURLHelper includes validation and fallback to hostname when IP retrieval fails.
+
 ## Unix Socket Communication Protocol
 
 ### Type Synchronization Between Mac and Web

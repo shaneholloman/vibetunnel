@@ -69,17 +69,26 @@ struct ServerInfoHeader: View {
                     if self.tailscaleService.isRunning, let hostname = tailscaleService.tailscaleHostname {
                         let isTailscaleServeEnabled = UserDefaults.standard
                             .bool(forKey: AppConstants.UserDefaultsKeys.tailscaleServeEnabled)
+                        let isFunnelEnabled = UserDefaults.standard
+                            .bool(forKey: AppConstants.UserDefaultsKeys.tailscaleFunnelEnabled)
                         ServerAddressRow(
                             icon: "shield",
                             label: "Tailscale:",
                             address: TailscaleURLHelper.displayAddress(
                                 hostname: hostname,
-                                port: self.serverManager.port,
-                                isTailscaleServeEnabled: isTailscaleServeEnabled),
+                                port: serverManager.port,
+                                isTailscaleServeEnabled: isTailscaleServeEnabled,
+                                isTailscaleServeRunning: isTailscaleServeEnabled,
+                                isFunnelEnabled: isFunnelEnabled
+                            ),
                             url: TailscaleURLHelper.constructURL(
                                 hostname: hostname,
-                                port: self.serverManager.port,
-                                isTailscaleServeEnabled: isTailscaleServeEnabled))
+                                port: serverManager.port,
+                                isTailscaleServeEnabled: isTailscaleServeEnabled,
+                                isTailscaleServeRunning: isTailscaleServeEnabled,
+                                isFunnelEnabled: isFunnelEnabled
+                            )
+                        )
                     }
                 }
             }

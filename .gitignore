@@ -172,3 +172,5 @@ mac/build-test/
 /.grok
 /mac/info
 /info
+*.crt
+*.key

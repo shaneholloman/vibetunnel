@@ -594,15 +594,28 @@ private struct TailscaleIntegrationSection: View {
                                     )
                                 )
 
-                            InlineClickableURLView(
-                                label: "Access VibeTunnel at:",
-                                url: TailscaleURLHelper.constructURL(
-                                    hostname: hostname,
-                                    port: serverPort,
-                                    isTailscaleServeEnabled: useHTTPS,
-                                    isTailscaleServeRunning: useHTTPS
-                                )?.absoluteString ?? ""
-                            )
+                            if let constructedURL = TailscaleURLHelper.constructURL(
+                                hostname: hostname,
+                                port: serverPort,
+                                isTailscaleServeEnabled: useHTTPS,
+                                isTailscaleServeRunning: useHTTPS,
+                                isFunnelEnabled: tailscaleFunnelEnabled
+                            ) {
+                                InlineClickableURLView(
+                                    label: "Access VibeTunnel at:",
+                                    url: constructedURL.absoluteString
+                                )
+                            } else {
+                                // Show placeholder when URL is nil
+                                HStack(spacing: 5) {
+                                    Text("Access VibeTunnel at:")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("Configuring...")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                            }
 
                             // Show warning if in localhost-only mode
                             if accessMode == .localhost && !tailscaleServeEnabled {

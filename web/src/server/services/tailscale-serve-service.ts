@@ -268,14 +268,16 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
       logger.debug('Failed to reset Funnel config (this is normal if none exists)');
     }
 
-    logger.debug(`🔧 Command: ${this.tailscaleExecutable} funnel --bg --https=${httpsPort} http://localhost:${port}`);
+    logger.debug(
+      `🔧 Command: ${this.tailscaleExecutable} funnel --bg --https=${httpsPort} http://localhost:${port}`
+    );
 
     try {
       // Enable Funnel with the correct proxy target
       // Must specify the full target URL to avoid overriding the proxy destination
       const funnelProcess = spawn(
         this.tailscaleExecutable,
-        ['funnel', '--bg', '--https=' + httpsPort, `http://localhost:${port}`],
+        ['funnel', '--bg', `--https=${httpsPort}`, `http://localhost:${port}`],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
         }
@@ -323,9 +325,7 @@ export class TailscaleServeServiceImpl implements TailscaleServeService {
             this.funnelStartTime = new Date();
             resolve();
           } else {
-            logger.info(
-              `❌ Funnel failed with exit code ${code}: ${stderr || 'No error message'}`
-            );
+            logger.info(`❌ Funnel failed with exit code ${code}: ${stderr || 'No error message'}`);
             reject(new Error(`Funnel failed with exit code ${code}: ${stderr}`));
           }
         });

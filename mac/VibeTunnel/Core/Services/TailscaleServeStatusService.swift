@@ -24,7 +24,18 @@ final class TailscaleServeStatusService {
     private var isCurrentlyFetching = false
     private var lastKnownMode: Bool? // Track the last known Funnel mode to detect switches
 
-    private init() {}
+    private init() {
+        // Auto-start monitoring if Tailscale is enabled
+        let tailscaleEnabled = UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.tailscaleServeEnabled)
+        if tailscaleEnabled {
+            Task {
+                // Initial fetch
+                await fetchStatus(silent: false)
+                // Then start regular monitoring
+                startMonitoring()
+            }
+        }
+    }
 
     /// Start polling for status updates
     func startMonitoring() {
