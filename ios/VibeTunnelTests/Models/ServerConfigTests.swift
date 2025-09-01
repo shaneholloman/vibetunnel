@@ -231,6 +231,141 @@ struct ServerConfigTests {
         #expect(jsonString.contains("\"port\":3000"))
         #expect(jsonString.contains("\"name\":\"user\""))
     }
+
+    @Test("Tailscale HTTPS URL generation")
+    func tailscaleHTTPSURL() {
+        // Config with Tailscale HTTPS available
+        let httpsConfig = ServerConfig(
+            host: "10.0.0.1",
+            port: 4_020,
+            name: "VibeTunnel Server",
+            tailscaleHostname: "my-machine.tailnet.ts.net",
+            tailscaleIP: "100.64.0.1",
+            isTailscaleEnabled: true,
+            preferTailscale: true,
+            httpsAvailable: true,
+            isPublic: false,
+            preferSSL: true
+        )
+
+        // Should use HTTPS URL when available and preferred
+        let connectionUrl = httpsConfig.connectionURL()
+        #expect(connectionUrl.absoluteString == "https://my-machine.tailnet.ts.net")
+        #expect(connectionUrl.scheme == "https")
+        #expect(connectionUrl.port == nil) // Port 443 is implicit
+
+        // Should fall back to HTTP when SSL not preferred
+        var httpConfig = httpsConfig
+        httpConfig.preferSSL = false
+        let httpUrl = httpConfig.connectionURL()
+        #expect(httpUrl.absoluteString == "http://100.64.0.1:4020")
+    }
+
+    @Test("Tailscale connection type detection")
+    func tailscaleConnectionTypes() {
+        // Local only
+        let localConfig = ServerConfig(
+            host: "localhost",
+            port: 4_020
+        )
+        #expect(localConfig.availableConnectionTypes == .local)
+
+        // Tailscale only
+        let tailscaleOnlyConfig = ServerConfig(
+            host: "100.64.0.1",
+            port: 4_020,
+            tailscaleHostname: "machine.ts.net"
+        )
+        #expect(tailscaleOnlyConfig.availableConnectionTypes == .tailscale)
+
+        // Both local and Tailscale
+        let bothConfig = ServerConfig(
+            host: "localhost",
+            port: 4_020,
+            tailscaleHostname: "machine.ts.net",
+            isTailscaleEnabled: true
+        )
+        #expect(bothConfig.availableConnectionTypes == .both)
+    }
+
+    @Test("API URL uses connection URL instead of base URL")
+    func apiURLUsesConnectionURL() {
+        // Config with HTTPS available should use HTTPS for API calls
+        let httpsConfig = ServerConfig(
+            host: "100.64.0.1",
+            port: 4_020,
+            name: "Test Server",
+            tailscaleHostname: "test-machine.tailnet.ts.net",
+            tailscaleIP: "100.64.0.1",
+            isTailscaleEnabled: true,
+            preferTailscale: true,
+            httpsAvailable: true,
+            isPublic: false,
+            preferSSL: true
+        )
+
+        // API URL should use HTTPS when available
+        let apiUrl = httpsConfig.apiURL(path: "/api/sessions")
+        #expect(apiUrl.absoluteString == "https://test-machine.tailnet.ts.net/api/sessions")
+        #expect(apiUrl.scheme == "https")
+
+        // Config without HTTPS should use HTTP
+        let httpConfig = ServerConfig(
+            host: "localhost",
+            port: 4_020,
+            name: "Local Server"
+        )
+
+        let httpApiUrl = httpConfig.apiURL(path: "/api/sessions")
+        #expect(httpApiUrl.absoluteString == "http://localhost:4020/api/sessions")
+        #expect(httpApiUrl.scheme == "http")
+    }
+
+    @Test("Display name with connection indicators")
+    func displayNameWithConnectionIndicators() {
+        // HTTPS/SSL connection
+        let httpsConfig = ServerConfig(
+            host: "localhost",
+            port: 4_020,
+            name: "My Server",
+            httpsAvailable: true,
+            preferSSL: true
+        )
+        #expect(httpsConfig.displayNameWithConnectionType.contains("🔒"))
+
+        // Public (Funnel) connection
+        let publicConfig = ServerConfig(
+            host: "localhost",
+            port: 4_020,
+            name: "My Server",
+            isPublic: true
+        )
+        #expect(publicConfig.displayNameWithConnectionType.contains("🌐"))
+
+        // Tailscale without HTTPS
+        let tailscaleConfig = ServerConfig(
+            host: "100.64.0.1",
+            port: 4_020,
+            name: "My Server",
+            isTailscaleEnabled: true
+        )
+        #expect(tailscaleConfig.displayNameWithConnectionType.contains("🔗"))
+
+        // All indicators
+        let allIndicatorsConfig = ServerConfig(
+            host: "100.64.0.1",
+            port: 4_020,
+            name: "My Server",
+            isTailscaleEnabled: true,
+            httpsAvailable: true,
+            isPublic: true,
+            preferSSL: true
+        )
+        let displayName = allIndicatorsConfig.displayNameWithConnectionType
+        #expect(displayName.contains("🔒"))
+        #expect(displayName.contains("🌐"))
+        #expect(!displayName.contains("🔗")) // Tailscale indicator hidden when HTTPS is used
+    }
 }
 
 // MARK: - Integration Tests

@@ -771,8 +771,79 @@ export async function createApp(): Promise<AppInstance> {
   );
 
   // Health check endpoint (no auth required)
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
     const versionInfo = getVersionInfo();
+
+    // Get connection information
+    const connections: any = {
+      http: `http://localhost:${config.port}`,
+      port: config.port,
+    };
+
+    // Check if Tailscale is enabled and get status
+    if (config.enableTailscaleServe) {
+      try {
+        const tailscaleStatus = await tailscaleServeService.getStatus();
+
+        // Get Tailscale hostname if available
+        let tailscaleHostname: string | undefined;
+        let tailscaleUrl: string | undefined;
+
+        if (tailscaleStatus.isRunning && !tailscaleStatus.isPermanentlyDisabled) {
+          try {
+            // Get Tailscale hostname from status
+            const { execSync } = await import('child_process');
+            const statusJson = execSync('tailscale status --json', { encoding: 'utf8' });
+            const status = JSON.parse(statusJson);
+
+            if (status.Self && status.Self.DNSName) {
+              // Remove trailing dot from DNS name
+              tailscaleHostname = status.Self.DNSName.replace(/\.$/, '');
+              tailscaleUrl = `https://${tailscaleHostname}`;
+              logger.debug(`Tailscale hostname detected: ${tailscaleHostname}`);
+            }
+          } catch (error) {
+            logger.debug('Failed to get Tailscale hostname:', error);
+          }
+        }
+
+        // HTTPS is only available when Funnel (public mode) is enabled
+        // In private mode, HTTPS doesn't work from mobile devices due to self-signed certs
+        const httpsActuallyAvailable = tailscaleStatus.isRunning && 
+          !tailscaleStatus.isPermanentlyDisabled && 
+          (tailscaleStatus.funnelEnabled || false);
+        
+        connections.tailscale = {
+          isRunning: tailscaleStatus.isRunning,
+          httpsAvailable: httpsActuallyAvailable,
+          isPublic: tailscaleStatus.funnelEnabled || false,
+          mode: tailscaleStatus.actualMode || 'private',
+          hostname: tailscaleHostname,
+          httpsUrl: httpsActuallyAvailable ? tailscaleUrl : undefined,
+        };
+        connections.sslAvailable = httpsActuallyAvailable;
+        connections.isPublic = tailscaleStatus.funnelEnabled || false;
+
+        // Add the HTTPS URL at the top level for easy access only if actually available
+        if (httpsActuallyAvailable && tailscaleUrl) {
+          connections.tailscaleUrl = tailscaleUrl;
+        }
+      } catch (error) {
+        logger.debug('Failed to get Tailscale status for health endpoint:', error);
+        connections.tailscale = {
+          isRunning: false,
+          httpsAvailable: false,
+          isPublic: false,
+          mode: 'private',
+        };
+        connections.sslAvailable = false;
+        connections.isPublic = false;
+      }
+    } else {
+      connections.sslAvailable = false;
+      connections.isPublic = false;
+    }
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -781,6 +852,7 @@ export async function createApp(): Promise<AppInstance> {
       buildDate: versionInfo.buildDate,
       uptime: versionInfo.uptime,
       pid: versionInfo.pid,
+      connections,
     });
   });
 

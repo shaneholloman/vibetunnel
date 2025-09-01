@@ -46,6 +46,40 @@ final class BufferWebSocketClientTests {
         #expect(self.client.connectionError == nil)
     }
 
+    @Test("WebSocket uses connectionURL for WSS with HTTPS")
+    func websocketUsesConnectionURL() async throws {
+        // Arrange - server with HTTPS available
+        let httpsConfig = ServerConfig(
+            host: "100.64.0.1",
+            port: 4_020,
+            name: "Test Server",
+            tailscaleHostname: "test-machine.tailnet.ts.net",
+            tailscaleIP: "100.64.0.1",
+            isTailscaleEnabled: true,
+            preferTailscale: true,
+            httpsAvailable: true,
+            isPublic: false,
+            preferSSL: true
+        )
+        TestFixtures.saveServerConfig(httpsConfig)
+
+        // Create new client to pick up the config
+        let client = BufferWebSocketClient(webSocketFactory: mockFactory)
+
+        // Act
+        client.connect()
+
+        // Give it a moment to process
+        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+
+        // Assert - should use WSS with HTTPS hostname
+        #expect(mockFactory.createdWebSockets.count == 1)
+        let mockWebSocket = try #require(mockFactory.lastCreatedWebSocket)
+        #expect(mockWebSocket.lastConnectURL?.scheme == "wss")
+        #expect(mockWebSocket.lastConnectURL?.host == "test-machine.tailnet.ts.net")
+        #expect(mockWebSocket.lastConnectURL?.path == "/buffers")
+    }
+
     @Test("Handles connection failure gracefully")
     func connectionFailure() async throws {
         // Act

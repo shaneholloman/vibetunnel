@@ -148,16 +148,12 @@ enum TailscaleURLHelper {
         let isPublicMode = isFunnelEnabled ?? false
 
         if useServeURL && isPublicMode {
-            // Public mode - show HTTPS URL
-            return "https://\(hostname)"
+            // Public mode - show HTTPS URL without port (port 443 is implicit)
+            return "\(hostname)"
         } else if useServeURL && !isPublicMode {
-            // Private mode - show IP:port for HTTP
-            if let tailscaleIP = getTailscaleIP() {
-                return "\(tailscaleIP):\(port)"
-            } else {
-                // Fallback to hostname:port if we can't get the IP
-                return "\(hostname):\(port)"
-            }
+            // Private mode - show hostname:port for HTTP
+            // Don't use IP address here as it's less user-friendly
+            return "\(hostname):\(port)"
         } else {
             // Tailscale not enabled - show hostname:port
             return "\(hostname):\(port)"

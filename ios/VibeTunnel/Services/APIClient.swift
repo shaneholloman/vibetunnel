@@ -98,16 +98,31 @@ class APIClient: APIClientProtocol {
     private let encoder = JSONEncoder()
     private(set) var authenticationService: AuthenticationService?
 
+    /// Allow dynamic base URL updates for Tailscale support
+    private var overrideBaseURL: URL?
+
     private var baseURL: URL? {
+        // Use override URL if set (for Tailscale connections)
+        if let overrideURL = overrideBaseURL {
+            return overrideURL
+        }
+
         guard let config = UserDefaults.standard.data(forKey: "savedServerConfig"),
               let serverConfig = try? JSONDecoder().decode(ServerConfig.self, from: config)
         else {
             return nil
         }
-        return serverConfig.baseURL
+
+        // Use the connection URL which handles Tailscale logic
+        return serverConfig.connectionURL()
     }
 
     private init() {}
+
+    /// Updates the base URL for API requests (used for Tailscale connections)
+    func updateBaseURL(_ url: URL) {
+        overrideBaseURL = url
+    }
 
     // MARK: - Session Management
 

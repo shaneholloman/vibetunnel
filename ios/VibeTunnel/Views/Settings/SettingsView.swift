@@ -4,16 +4,22 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss)
     var dismiss
-    @State private var selectedTab = SettingsTab.general
+    @State private var selectedTab: SettingsTab
+
+    init(initialTab: SettingsTab = .general) {
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     enum SettingsTab: String, CaseIterable {
         case general = "General"
+        case tailscale = "Tailscale"
         case advanced = "Advanced"
         case about = "About"
 
         var icon: String {
             switch self {
             case .general: "gear"
+            case .tailscale: "lock.shield"
             case .advanced: "gearshape.2"
             case .about: "info.circle"
             }
@@ -59,6 +65,8 @@ struct SettingsView: View {
                         switch self.selectedTab {
                         case .general:
                             GeneralSettingsView()
+                        case .tailscale:
+                            TailscaleSettingsContent()
                         case .advanced:
                             AdvancedSettingsView()
                         case .about:

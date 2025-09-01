@@ -4,20 +4,45 @@ import Foundation
 ///
 /// ServerConfig stores all necessary information to establish
 /// a connection to a VibeTunnel server, including host, port,
-/// optional authentication, and display name.
+/// optional authentication, display name, and Tailscale configuration.
 struct ServerConfig: Codable, Equatable {
     let host: String
     let port: Int
     let name: String?
 
+    // Tailscale properties
+    var tailscaleHostname: String?
+    var tailscaleIP: String?
+    var isTailscaleEnabled: Bool = false
+    var preferTailscale: Bool = false
+
+    // Connection type properties
+    var httpsAvailable: Bool = false
+    var isPublic: Bool = false
+    var preferSSL: Bool = true
+
     init(
         host: String,
         port: Int,
-        name: String? = nil)
-    {
+        name: String? = nil,
+        tailscaleHostname: String? = nil,
+        tailscaleIP: String? = nil,
+        isTailscaleEnabled: Bool = false,
+        preferTailscale: Bool = false,
+        httpsAvailable: Bool = false,
+        isPublic: Bool = false,
+        preferSSL: Bool = true
+    ) {
         self.host = host
         self.port = port
         self.name = name
+        self.tailscaleHostname = tailscaleHostname
+        self.tailscaleIP = tailscaleIP
+        self.isTailscaleEnabled = isTailscaleEnabled
+        self.preferTailscale = preferTailscale
+        self.httpsAvailable = httpsAvailable
+        self.isPublic = isPublic
+        self.preferSSL = preferSSL
     }
 
     /// Constructs the base URL for API requests.
@@ -29,10 +54,10 @@ struct ServerConfig: Codable, Equatable {
     /// a file URL as fallback to ensure non-nil return.
     var baseURL: URL {
         // Handle IPv6 addresses by wrapping in brackets
-        var formattedHost = self.host
+        var formattedHost = host
 
         // First, strip any existing brackets to normalize
-        if formattedHost.hasPrefix("["), formattedHost.hasSuffix("]") {
+        if formattedHost.hasPrefix("[") && formattedHost.hasSuffix("]") {
             formattedHost = String(formattedHost.dropFirst().dropLast())
         }
 
@@ -52,7 +77,7 @@ struct ServerConfig: Codable, Equatable {
 
         // This should always succeed with valid host and port
         // Fallback ensures we always have a valid URL
-        return URL(string: "http://\(formattedHost):\(self.port)") ?? URL(fileURLWithPath: "/")
+        return URL(string: "http://\(formattedHost):\(port)") ?? URL(fileURLWithPath: "/")
     }
 
     /// User-friendly display name for the server.
@@ -60,7 +85,7 @@ struct ServerConfig: Codable, Equatable {
     /// Returns the custom name if set, otherwise formats
     /// the host and port as "host:port".
     var displayName: String {
-        self.name ?? "\(self.host):\(self.port)"
+        name ?? "\(host):\(port)"
     }
 
     /// Creates a URL for an API endpoint path.
@@ -68,13 +93,92 @@ struct ServerConfig: Codable, Equatable {
     /// - Parameter path: The API path (e.g., "/api/sessions")
     /// - Returns: A complete URL for the API endpoint
     func apiURL(path: String) -> URL {
-        self.baseURL.appendingPathComponent(path)
+        connectionURL().appendingPathComponent(path)
     }
 
     /// Unique identifier for this server configuration.
     ///
     /// Used for keychain storage and identifying server instances.
     var id: String {
-        "\(self.host):\(self.port)"
+        "\(host):\(port)"
+    }
+
+    /// Connection type available for this server
+    enum ConnectionType: String, Codable {
+        case local
+        case tailscale
+        case both
+    }
+
+    /// Determines available connection types based on configuration
+    var availableConnectionTypes: ConnectionType {
+        if isTailscaleEnabled && tailscaleHostname != nil {
+            .both
+        } else if tailscaleHostname != nil {
+            .tailscale
+        } else {
+            .local
+        }
+    }
+
+    /// Gets the appropriate URL based on connection preferences and availability
+    /// - Parameter useTailscale: Force use of Tailscale connection if available
+    /// - Returns: The best URL for connecting to the server
+    func connectionURL(useTailscale: Bool? = nil) -> URL {
+        let shouldUseTailscale = useTailscale ?? preferTailscale
+
+        if shouldUseTailscale && isTailscaleEnabled {
+            // For Tailscale connections with HTTPS available
+            if httpsAvailable && preferSSL && tailscaleHostname != nil {
+                // Use HTTPS via Tailscale hostname (port 443 is implicit)
+                if let tailscaleHostname,
+                   let url = URL(string: "https://\(tailscaleHostname)")
+                {
+                    return url
+                }
+            }
+
+            // Try regular HTTP Tailscale connection
+            if let tailscaleIP {
+                // Prefer IP for better compatibility on iOS
+                if let url = URL(string: "http://\(tailscaleIP):\(port)") {
+                    return url
+                }
+            } else if let tailscaleHostname {
+                if let url = URL(string: "http://\(tailscaleHostname):\(port)") {
+                    return url
+                }
+            }
+        }
+
+        // Fall back to regular connection
+        return baseURL
+    }
+
+    /// Display name with connection type indicator
+    var displayNameWithConnectionType: String {
+        let baseName = displayName
+        var indicators: [String] = []
+
+        // Add connection security indicator
+        if httpsAvailable && preferSSL {
+            indicators.append("🔒") // HTTPS/SSL connection
+        }
+
+        // Add public/private indicator
+        if isPublic {
+            indicators.append("🌐") // Public (Funnel)
+        }
+
+        // Add Tailscale indicator if using Tailscale but not HTTPS
+        if isTailscaleEnabled && !(httpsAvailable && preferSSL) {
+            indicators.append("🔗") // Tailscale network
+        }
+
+        if indicators.isEmpty {
+            return baseName
+        } else {
+            return "\(baseName) \(indicators.joined(separator: " "))"
+        }
     }
 }
