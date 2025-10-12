@@ -30,6 +30,7 @@ struct ServerSessionInfo: Codable {
     // Additional fields from Session (not SessionInfo)
     let lastModified: String
     let active: Bool?
+    let activityStatus: SessionActivityStatus? = nil
     let source: String?
     let remoteId: String?
     let remoteName: String?
@@ -39,6 +40,25 @@ struct ServerSessionInfo: Codable {
     var isRunning: Bool {
         self.status == "running"
     }
+
+    /// Determine whether the session should be considered active for UI purposes.
+    ///
+    /// The activity monitor flag is authoritative since Mac app and server ship together.
+    var isActivityActive: Bool {
+        activityStatus?.isActive ?? false
+    }
+}
+
+/// Activity status for a session.
+struct SessionActivityStatus: Codable {
+    let isActive: Bool
+    let specificStatus: SessionSpecificStatus?
+}
+
+/// App-specific activity status for a session.
+struct SessionSpecificStatus: Codable {
+    let app: String
+    let status: String
 }
 
 /// Lightweight session monitor that fetches terminal sessions on-demand.

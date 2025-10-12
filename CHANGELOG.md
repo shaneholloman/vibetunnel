@@ -5,6 +5,7 @@
 ### 🐛 Bug Fixes
 - Fix session creation "data couldn't be read" error on Mac app (#500)
 - Fix mobile session header overflow for long paths/branch names (#561)
+- Fix Mac session activity detection to use activityStatus.isActive (#549)
 
 ## [1.0.0-beta.15] - 2025-08-02
 

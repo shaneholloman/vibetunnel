@@ -177,6 +177,64 @@ final class SessionMonitorTests {
         #expect(session.isRunning == true)
     }
 
+    @Test("Decode session with activity status")
+    func decodeSessionWithActivityStatus() throws {
+        let json = """
+        {
+            "id": "activity-session",
+            "name": "bash",
+            "command": ["bash"],
+            "workingDir": "/",
+            "status": "running",
+            "startedAt": "2025-01-01T10:00:00.000Z",
+            "lastModified": "2025-01-01T10:05:00.000Z",
+            "activityStatus": {
+                "isActive": true,
+                "specificStatus": {
+                    "app": "shell",
+                    "status": "busy"
+                }
+            }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let session = try JSONDecoder().decode(ServerSessionInfo.self, from: data)
+
+        #expect(session.activityStatus?.isActive == true)
+        #expect(session.activityStatus?.specificStatus?.app == "shell")
+        #expect(session.activityStatus?.specificStatus?.status == "busy")
+        #expect(session.isActivityActive == true)
+    }
+
+    @Test("isActivityActive uses isActive only")
+    func isActivityActiveUsesIsActiveOnly() throws {
+        let json = """
+        {
+            "id": "idle-session",
+            "name": "bash",
+            "command": ["bash"],
+            "workingDir": "/",
+            "status": "running",
+            "startedAt": "2025-01-01T10:00:00.000Z",
+            "lastModified": "2025-01-01T10:05:00.000Z",
+            "active": true,
+            "activityStatus": {
+                "isActive": false,
+                "specificStatus": {
+                    "app": "shell",
+                    "status": "busy"
+                }
+            }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let session = try JSONDecoder().decode(ServerSessionInfo.self, from: data)
+
+        #expect(session.isActivityActive == false)
+    }
+
     @Test("Decode session array from API response")
     func decodeSessionArrayFromAPI() throws {
         let json = """
