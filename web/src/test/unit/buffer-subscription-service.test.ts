@@ -305,7 +305,7 @@ describe('BufferSubscriptionService', () => {
       vi.useFakeTimers();
 
       // Wait for handler to be called
-      await vi.waitFor(() => handler.mock.calls.length > 0, { timeout: 100 });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalled(), { timeout: 1000 });
 
       expect(handler).toHaveBeenCalledWith({
         cols: 80,
@@ -464,9 +464,13 @@ describe('BufferSubscriptionService', () => {
       vi.useFakeTimers();
 
       // Wait for handlers to be called
-      await vi.waitFor(() => handler1.mock.calls.length > 0 && handler2.mock.calls.length > 0, {
-        timeout: 100,
-      });
+      await vi.waitFor(
+        () => {
+          expect(handler1).toHaveBeenCalled();
+          expect(handler2).toHaveBeenCalled();
+        },
+        { timeout: 1000 }
+      );
 
       expect(handler1).toHaveBeenCalled();
       expect(handler2).toHaveBeenCalled();
@@ -503,8 +507,11 @@ describe('BufferSubscriptionService', () => {
 
       // Wait for handlers to be called
       await vi.waitFor(
-        () => errorHandler.mock.calls.length > 0 && goodHandler.mock.calls.length > 0,
-        { timeout: 100 }
+        () => {
+          expect(errorHandler).toHaveBeenCalled();
+          expect(goodHandler).toHaveBeenCalled();
+        },
+        { timeout: 1000 }
       );
 
       // Both handlers should have been called
