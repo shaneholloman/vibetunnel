@@ -26,6 +26,6 @@ let package = Package(
                 .product(name: "Dynamic", package: "Dynamic"),
             ],
             swiftSettings: [
-                .swiftLanguageVersion(.v5),
+                .swiftLanguageMode(.v5),
             ]),
     ])
