@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { CellFlags, Ghostty, type GhosttyTerminal } from 'ghostty-web';
 import { createRequire } from 'module';
 import * as path from 'path';
+import type { SessionInfo } from '../../shared/types.js';
 import { ErrorDeduplicator, formatErrorSummary } from '../utils/error-deduplicator.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -221,8 +222,35 @@ export class TerminalManager {
     return sessionTerminal.terminal;
   }
 
+  private async readSessionDimensions(
+    sessionId: string
+  ): Promise<{ cols?: number; rows?: number }> {
+    const sessionJsonPath = path.join(this.controlDir, sessionId, 'session.json');
+    if (!fs.existsSync(sessionJsonPath)) {
+      return {};
+    }
+
+    try {
+      const raw = await fs.promises.readFile(sessionJsonPath, 'utf8');
+      const parsed = JSON.parse(raw) as Partial<SessionInfo>;
+      const cols =
+        typeof parsed.initialCols === 'number' && Number.isFinite(parsed.initialCols)
+          ? parsed.initialCols
+          : undefined;
+      const rows =
+        typeof parsed.initialRows === 'number' && Number.isFinite(parsed.initialRows)
+          ? parsed.initialRows
+          : undefined;
+      return { cols, rows };
+    } catch (error) {
+      logger.debug(`Failed to read session.json for fallback ${truncateForLog(sessionId)}:`, error);
+      return {};
+    }
+  }
+
   private async buildFallbackSnapshot(sessionId: string): Promise<BufferSnapshot> {
     const streamPath = path.join(this.controlDir, sessionId, 'stdout');
+    const sessionDimensions = await this.readSessionDimensions(sessionId);
     const emptySnapshot = (): BufferSnapshot => ({
       cols: 1,
       rows: 1,
@@ -254,39 +282,77 @@ export class TerminalManager {
     }
 
     let output = '';
+    let headerCols: number | undefined;
+    let headerRows: number | undefined;
+    let resizeCols: number | undefined;
+    let resizeRows: number | undefined;
     for (const line of content.split('\n')) {
       if (!line.trim()) continue;
       try {
         const parsed = JSON.parse(line);
-        if (Array.isArray(parsed) && parsed.length >= 3 && parsed[1] === 'o') {
-          output += String(parsed[2]);
+        if (Array.isArray(parsed) && parsed.length >= 3) {
+          if (parsed[1] === 'o') {
+            output += String(parsed[2]);
+          } else if (parsed[1] === 'r') {
+            const match = String(parsed[2]).match(/^(\d+)x(\d+)$/);
+            if (match) {
+              resizeCols = Number.parseInt(match[1], 10);
+              resizeRows = Number.parseInt(match[2], 10);
+            }
+          }
+        } else if (parsed && typeof parsed === 'object') {
+          const width = (parsed as { width?: number }).width;
+          const height = (parsed as { height?: number }).height;
+          if (typeof width === 'number' && Number.isFinite(width)) headerCols = width;
+          if (typeof height === 'number' && Number.isFinite(height)) headerRows = height;
         }
       } catch {
         // ignore malformed lines
       }
     }
 
+    const fallbackCols = resizeCols ?? sessionDimensions.cols ?? headerCols;
+    const fallbackRows = resizeRows ?? sessionDimensions.rows ?? headerRows;
     if (!output) {
-      return emptySnapshot();
+      const cols = Math.max(1, fallbackCols ?? 1);
+      const rows = Math.max(1, fallbackRows ?? 1);
+      const cells: BufferCell[][] = Array.from({ length: rows }, () => [{ char: ' ', width: 1 }]);
+      return {
+        cols,
+        rows,
+        viewportY: 0,
+        cursorX: 0,
+        cursorY: 0,
+        cells,
+      };
     }
 
     const normalized = output.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // biome-ignore lint/complexity/useRegexLiterals: avoid control-character lint for ESC
     const ansiPattern = new RegExp('\\u001b\\[[0-9;?]*[a-zA-Z]', 'g');
     const stripped = normalized.replace(ansiPattern, '');
     const lines = stripped.split('\n');
-    const cols = Math.max(1, ...lines.map((line) => Array.from(line).length));
+    const rows = Math.max(1, fallbackRows ?? lines.length);
+    const visibleLines = fallbackRows ? lines.slice(-rows) : lines;
+    const outputCols = Math.max(1, ...visibleLines.map((line) => Array.from(line).length));
+    const cols = Math.max(1, fallbackCols ?? outputCols);
 
-    const cells: BufferCell[][] = lines.map((line) => {
+    const cells: BufferCell[][] = visibleLines.map((line) => {
       const chars = Array.from(line);
-      if (chars.length === 0) {
+      const truncated = cols ? chars.slice(0, cols) : chars;
+      if (truncated.length === 0) {
         return [{ char: ' ', width: 1 }];
       }
-      return chars.map((char) => ({ char, width: 1 }));
+      return truncated.map((char) => ({ char, width: 1 }));
     });
+
+    while (cells.length < rows) {
+      cells.push([{ char: ' ', width: 1 }]);
+    }
 
     return {
       cols,
-      rows: cells.length,
+      rows,
       viewportY: 0,
       cursorX: 0,
       cursorY: 0,
