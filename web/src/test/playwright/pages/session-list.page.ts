@@ -516,13 +516,10 @@ export class SessionListPage extends BasePage {
       });
 
       // Then wait for the actual terminal component inside to be visible
-      await this.page.waitForSelector(
-        '#session-terminal vibe-terminal, #session-terminal vibe-terminal-binary',
-        {
-          state: 'visible',
-          timeout: process.env.CI ? 15000 : 10000,
-        }
-      );
+      await this.page.waitForSelector('#session-terminal vibe-terminal', {
+        state: 'visible',
+        timeout: process.env.CI ? 15000 : 10000,
+      });
     } else {
       // For spawn window, wait for modal to close
       await this.page.waitForSelector('.modal-content', { state: 'hidden', timeout: 4000 });

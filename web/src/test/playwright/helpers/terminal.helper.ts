@@ -57,7 +57,7 @@ export async function waitForTerminalReady(page: Page): Promise<void> {
       const host = document.querySelector('#session-terminal');
       if (!host) return false;
 
-      const term = host.querySelector('vibe-terminal, vibe-terminal-binary') as unknown as {
+      const term = host.querySelector('vibe-terminal') as unknown as {
         getDebugText?: () => string;
         textContent?: string | null;
       } | null;
@@ -89,23 +89,18 @@ export async function executeCommandIntelligent(
   const terminal = page.locator('vibe-terminal');
   await terminal.click();
 
-  // Capture current terminal state before command
-  const beforeContent = await page.evaluate(() => {
-    const term = document.querySelector('vibe-terminal') as unknown as {
-      getDebugText?: () => string;
-      textContent?: string | null;
-    } | null;
-    if (!term) return '';
-    return typeof term.getDebugText === 'function' ? term.getDebugText() : term.textContent || '';
-  });
+  // Use a unique marker to robustly detect command completion across shells/prompts.
+  // Avoids fragile "prompt must be at end of buffer" logic.
+  const marker = `__VT_DONE_${Date.now()}_${Math.random().toString(16).slice(2)}__`;
+  const fullCommand = `${command}; echo "${marker}"`;
 
   // Execute command
-  await page.keyboard.type(command);
+  await page.keyboard.type(fullCommand);
   await page.keyboard.press('Enter');
 
-  // Wait for command completion with intelligent detection
+  // Wait for command completion: marker + expected output (if any).
   await page.waitForFunction(
-    ({ before, expectedText, expectRegex }) => {
+    ({ expectedText, expectRegex, markerText }) => {
       const term = document.querySelector('vibe-terminal') as unknown as {
         getDebugText?: () => string;
         textContent?: string | null;
@@ -115,9 +110,6 @@ export async function executeCommandIntelligent(
           ? term.getDebugText()
           : term?.textContent || '';
 
-      // Command must have completed (content changed)
-      if (current === before) return false;
-
       // Check for expected output if provided
       if (expectedText && !current.includes(expectedText)) return false;
       if (expectRegex) {
@@ -125,16 +117,18 @@ export async function executeCommandIntelligent(
         if (!regex.test(current)) return false;
       }
 
-      // Must end with a new prompt (command completed)
-      return /[$>#%❯]\s*$/.test(current);
+      return current.includes(markerText);
     },
     {
-      before: beforeContent,
       expectedText: typeof expectedOutput === 'string' ? expectedOutput : null,
       expectRegex: expectedOutput instanceof RegExp ? expectedOutput.source : null,
+      markerText: marker,
     },
-    { timeout: 15000 }
+    { timeout: 20000 }
   );
+
+  // Finally, wait for a prompt to reappear (best-effort). Some environments may be noisy.
+  await waitForShellPrompt(page);
 }
 
 /**

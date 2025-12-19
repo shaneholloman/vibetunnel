@@ -23,7 +23,7 @@ test.describe('Terminal Basic Tests', () => {
   });
 
   test.afterEach(async () => {
-    await sessionManager.cleanupAllSessions();
+    if (sessionManager) await sessionManager.cleanupAllSessions();
   });
 
   test('should display terminal and accept input', async ({ page }) => {

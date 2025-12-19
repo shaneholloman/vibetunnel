@@ -60,7 +60,7 @@ export class SessionViewPage extends BasePage {
     await this.page.waitForFunction(
       ({ mustHavePrompt }) => {
         const host = document.querySelector('#session-terminal') ?? document;
-        const terminal = host.querySelector('vibe-terminal, vibe-terminal-binary') as unknown as {
+        const terminal = host.querySelector('vibe-terminal') as unknown as {
           getAttribute?: (name: string) => string | null;
           getDebugText?: () => string;
           textContent?: string | null;
