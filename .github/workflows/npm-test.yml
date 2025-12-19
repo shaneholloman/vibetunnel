@@ -44,7 +44,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpam0g-dev build-essential python3 make g++
+          sudo apt-get install -y libpam0g-dev build-essential python3 make g++ zig
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

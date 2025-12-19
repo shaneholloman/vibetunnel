@@ -43,7 +43,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpam0g-dev
+          sudo apt-get install -y libpam0g-dev zig
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -152,4 +152,3 @@ jobs:
           name: server-coverage-report
           path: web/coverage/server/
           retention-days: 7
-
