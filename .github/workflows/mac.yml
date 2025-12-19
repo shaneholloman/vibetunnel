@@ -104,6 +104,17 @@ jobs:
             WAIT_TIME=$((WAIT_TIME * 2))  # Exponential backoff
           fi
         done
+
+        # Ensure tools are linked into PATH (Homebrew may leave them unlinked)
+        if ! command -v swiftlint >/dev/null; then
+          brew link swiftlint || brew link --overwrite swiftlint || true
+        fi
+        if ! command -v swiftformat >/dev/null; then
+          brew link swiftformat || brew link --overwrite swiftformat || true
+        fi
+        if ! command -v xcbeautify >/dev/null; then
+          brew link xcbeautify || brew link --overwrite xcbeautify || true
+        fi
         
         # Verify which tools are available
         echo "Tool availability check:"
@@ -170,6 +181,11 @@ jobs:
       continue-on-error: true
       run: |
         cd mac
+        if ! command -v swiftformat >/dev/null; then
+          echo "swiftformat not available; skipping"
+          echo "result=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
         swiftformat . --lint --config ../apple/.swiftformat 2>&1 | tee ../swiftformat-output.txt
         echo "result=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
     
@@ -178,6 +194,11 @@ jobs:
       continue-on-error: true
       run: |
         cd mac
+        if ! command -v swiftlint >/dev/null; then
+          echo "swiftlint not available; skipping"
+          echo "result=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
         swiftlint --config ../apple/.swiftlint.yml 2>&1 | tee ../swiftlint-output.txt
         echo "result=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
     
