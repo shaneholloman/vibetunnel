@@ -95,7 +95,6 @@ The server provides a comprehensive API for terminal session management with sup
 │   ├── session.json    # Session metadata
 │   ├── stdout          # Terminal output
 │   ├── stdin           # Terminal input log
-│   ├── activity.json   # Activity status
 │   └── ipc.sock        # Unix socket for IPC
 ```
 
@@ -151,7 +150,6 @@ The server provides a comprehensive API for terminal session management with sup
 - `GET /api/sessions/:id/stream` - SSE output stream
 - `GET /api/sessions/:id/text` - Get text output
 - `GET /api/sessions/:id/buffer` - Get binary buffer
-- `GET /api/sessions/activity` - Get all activity
 
 #### Authentication
 - `POST /api/auth/challenge` - Request challenge
@@ -249,10 +247,10 @@ The `fwd.ts` tool (`src/server/fwd.ts`) wraps any command in a VibeTunnel sessio
 - `--update-title <title>`: Update existing session title
 
 **Features**:
-- Auto-detects Claude AI and enables dynamic titles
+- Dynamic title mode is a legacy alias of static (no activity tracking)
 - Forwards stdin/stdout through PTY infrastructure
 - Creates sessions accessible via web interface
-- Activity detection for intelligent status updates
+- Sends control commands over the IPC socket (resize/kill/update-title)
 
 **Socket Protocol** (`src/server/pty/socket-protocol.ts`):
 ```
@@ -260,7 +258,7 @@ Message Types:
 ├── stdin: { type: 'stdin', data: Buffer }
 ├── resize: { type: 'resize', cols: number, rows: number }
 ├── kill: { type: 'kill', signal?: string }
-└── status: { type: 'status', message: string }
+└── update-title: { type: 'update-title', title: string }
 ```
 
 ## HQ Mode & Distributed Architecture
@@ -282,20 +280,6 @@ Message Types:
 - Continues serving local sessions
 - Automatic reconnection for WebSocket streams
 - Session ownership tracking for reliability
-
-## Activity Tracking
-
-### Activity Monitor (`src/server/services/activity-monitor.ts`)
-- Monitors stdout file changes (100ms intervals)
-- Marks sessions inactive after 500ms of no output
-- Persists activity to `activity.json`
-- Provides real-time activity status
-
-### Activity Detection (`src/server/utils/activity-detector.ts`)
-- App-specific status detection (Claude AI)
-- Filters prompt-only output
-- Dynamic title updates based on activity
-- 5-second activity timeout
 
 ## Additional Features
 

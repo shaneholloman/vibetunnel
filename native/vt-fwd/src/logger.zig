@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub const Level = enum(u8) {
     silent = 0,
-    error = 1,
+    @"error" = 1,
     warn = 2,
     info = 3,
     verbose = 4,
@@ -11,7 +11,7 @@ pub const Level = enum(u8) {
 
 pub fn parseLevel(value: []const u8) ?Level {
     if (std.ascii.eqlIgnoreCase(value, "silent")) return .silent;
-    if (std.ascii.eqlIgnoreCase(value, "error")) return .error;
+    if (std.ascii.eqlIgnoreCase(value, "error")) return .@"error";
     if (std.ascii.eqlIgnoreCase(value, "warn")) return .warn;
     if (std.ascii.eqlIgnoreCase(value, "info")) return .info;
     if (std.ascii.eqlIgnoreCase(value, "verbose")) return .verbose;
@@ -41,8 +41,8 @@ pub const Logger = struct {
         }
     }
 
-    pub fn error(self: *Logger, comptime fmt: []const u8, args: anytype) void {
-        self.log(.error, "ERROR", fmt, args);
+    pub fn logError(self: *Logger, comptime fmt: []const u8, args: anytype) void {
+        self.log(.@"error", "ERROR", fmt, args);
     }
 
     pub fn warn(self: *Logger, comptime fmt: []const u8, args: anytype) void {
@@ -66,7 +66,7 @@ pub const Logger = struct {
 
         var buf: [512]u8 = undefined;
         const msg = std.fmt.bufPrint(&buf, fmt, args) catch return;
-        const stderr = std.io.getStdErr().writer();
+        const stderr = std.fs.File.stderr().deprecatedWriter();
         _ = stderr.print("[{s}] {s}\n", .{ label, msg }) catch {};
 
         if (self.file) |*file| {

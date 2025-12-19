@@ -70,10 +70,6 @@ export interface SessionMonitorEvent {
   exitCode?: number;
   command?: string;
   duration?: number;
-  activityStatus?: {
-    isActive: boolean;
-    app?: string;
-  };
 }
 
 // Helper to create control messages

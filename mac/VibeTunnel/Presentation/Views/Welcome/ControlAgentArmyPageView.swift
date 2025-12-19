@@ -11,7 +11,7 @@ import SwiftUI
 /// ### Overview
 /// The agent army control page includes:
 /// - Instructions for using the menu bar to view all sessions
-/// - Information about session activity tracking
+/// - Information about session status tracking
 /// - Details about renaming sessions and using the magic wand
 /// - Explanation of session title display locations
 ///
@@ -29,7 +29,7 @@ struct ControlAgentArmyPageView: View {
                     .fontWeight(.semibold)
 
                 Text(
-                    "Click on the VibeTunnel icon in your menu bar to see all open terminal sessions. Track their activity, working paths, and Git changes.")
+                    "Click on the VibeTunnel icon in your menu bar to see all open terminal sessions. Track their status, working paths, and Git changes.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

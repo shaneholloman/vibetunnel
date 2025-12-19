@@ -269,35 +269,6 @@ describe('Sessions API Tests', () => {
       // based on how much actual content vs empty space there is
     });
 
-    it('should get session activity', async () => {
-      const response = await fetch(
-        `http://localhost:${server?.port}/api/sessions/${sessionId}/activity`
-      );
-
-      expect(response.status).toBe(200);
-      const activity = await response.json();
-
-      expect(activity).toHaveProperty('isActive');
-      expect(activity).toHaveProperty('timestamp');
-      expect(activity).toHaveProperty('session');
-      expect(activity.session.command).toEqual([
-        'bash',
-        '-c',
-        'while true; do echo "running"; sleep 1; done',
-      ]);
-    });
-
-    it('should get all sessions activity', async () => {
-      const response = await fetch(`http://localhost:${server?.port}/api/sessions/activity`);
-
-      expect(response.status).toBe(200);
-      const activities = await response.json();
-
-      expect(activities).toHaveProperty(sessionId);
-      expect(activities[sessionId]).toHaveProperty('isActive');
-      expect(activities[sessionId]).toHaveProperty('timestamp');
-    });
-
     it('should handle SSE stream', async () => {
       const response = await fetch(
         `http://localhost:${server?.port}/api/sessions/${sessionId}/stream`,

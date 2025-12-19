@@ -14,7 +14,7 @@ pub const TitleFilter = struct {
     pending: [4]u8 = undefined,
     pending_len: usize = 0,
 
-    pub fn filter(self: *TitleFilter, input: []const u8, output: *std.ArrayList(u8)) !void {
+    pub fn filter(self: *TitleFilter, allocator: std.mem.Allocator, input: []const u8, output: *std.ArrayList(u8)) !void {
         for (input) |byte| {
             switch (self.state) {
                 .normal => {
@@ -24,7 +24,7 @@ pub const TitleFilter = struct {
                         self.pending_len += 1;
                         self.state = .esc;
                     } else {
-                        try output.append(byte);
+                        try output.append(allocator, byte);
                     }
                 },
                 .esc => {
@@ -33,8 +33,8 @@ pub const TitleFilter = struct {
                         self.pending_len += 1;
                         self.state = .osc_type;
                     } else {
-                        try output.appendSlice(self.pending[0..self.pending_len]);
-                        try output.append(byte);
+                        try output.appendSlice(allocator, self.pending[0..self.pending_len]);
+                        try output.append(allocator, byte);
                         self.pending_len = 0;
                         self.state = .normal;
                     }
@@ -45,8 +45,8 @@ pub const TitleFilter = struct {
                         self.pending_len += 1;
                         self.state = .osc_after_type;
                     } else {
-                        try output.appendSlice(self.pending[0..self.pending_len]);
-                        try output.append(byte);
+                        try output.appendSlice(allocator, self.pending[0..self.pending_len]);
+                        try output.append(allocator, byte);
                         self.pending_len = 0;
                         self.state = .normal;
                     }
@@ -57,8 +57,8 @@ pub const TitleFilter = struct {
                         self.pending_len = 0;
                         self.state = .osc_body;
                     } else {
-                        try output.appendSlice(self.pending[0..self.pending_len]);
-                        try output.append(byte);
+                        try output.appendSlice(allocator, self.pending[0..self.pending_len]);
+                        try output.append(allocator, byte);
                         self.pending_len = 0;
                         self.state = .normal;
                     }

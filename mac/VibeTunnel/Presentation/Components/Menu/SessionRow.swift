@@ -5,12 +5,11 @@ import SwiftUI
 /// Row component displaying a single terminal session.
 ///
 /// Shows session information including command, directory, git status,
-/// activity indicators, and provides interaction for opening, renaming,
+/// status indicators, and provides interaction for opening, renaming,
 /// and terminating sessions. Supports both window and web-based sessions.
 struct SessionRow: View {
     let session: (key: String, value: ServerSessionInfo)
     let isHovered: Bool
-    let isActive: Bool
     let isFocused: Bool
 
     @Environment(\.openWindow)
@@ -54,14 +53,14 @@ struct SessionRow: View {
 
     var content: some View {
         HStack(spacing: 8) {
-            // Activity indicator with subtle glow
+            // Status indicator with subtle glow
             ZStack {
                 Circle()
-                    .fill(self.activityColor.opacity(0.3))
+                    .fill(self.statusColor.opacity(0.3))
                     .frame(width: 8, height: 8)
                     .blur(radius: 2)
                 Circle()
-                    .fill(self.activityColor)
+                    .fill(self.statusColor)
                     .frame(width: 4, height: 4)
             }
 
@@ -225,18 +224,6 @@ struct SessionRow: View {
                     .frame(width: 30, height: 16)
                 }
 
-                // Third row: Activity status (if present)
-                if let activityStatus = session.value.activityStatus?.specificStatus?.status {
-                    HStack(spacing: 4) {
-                        Text(activityStatus)
-                            .font(.system(size: 10))
-                            .foregroundColor(AppColors.Fallback.activityIndicator(for: self.colorScheme))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-
-                        Spacer()
-                    }
-                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -484,9 +471,10 @@ struct SessionRow: View {
         return path
     }
 
-    private var activityColor: Color {
-        self.isActive ? AppColors.Fallback.activityIndicator(for: self.colorScheme) : AppColors.Fallback
-            .gitClean(for: self.colorScheme)
+    private var statusColor: Color {
+        self.session.value.isRunning
+            ? AppColors.Fallback.activityIndicator(for: self.colorScheme)
+            : AppColors.Fallback.gitClean(for: self.colorScheme)
     }
 
     private var hasWindow: Bool {
@@ -522,12 +510,8 @@ struct SessionRow: View {
             tooltip += "\n"
         }
 
-        // Activity status
-        if let activityStatus = session.value.activityStatus?.specificStatus?.status {
-            tooltip += "Activity: \(activityStatus)\n"
-        } else {
-            tooltip += "Activity: \(self.isActive ? "Active" : "Idle")\n"
-        }
+        // Status
+        tooltip += "Status: \(self.session.value.status)\n"
 
         // Duration
         tooltip += "Duration: \(self.formattedDuration)"

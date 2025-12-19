@@ -197,14 +197,6 @@ export interface SessionState {
   name: string;
   command: string[];
   isRunning: boolean;
-  activityStatus?: {
-    isActive: boolean;
-    lastActivity?: Date;
-    specificStatus?: {
-      app: string;
-      status: string;
-    };
-  };
   commandStartTime?: Date;
   lastCommand?: string;
 }
@@ -249,12 +241,6 @@ export interface ServerEvent {
   command?: string;
   duration?: number;
   message?: string;
-  
-  // Activity status for richer client UI
-  activityStatus?: {
-    isActive: boolean;
-    app?: string;
-  };
 }
 ```
 
@@ -283,11 +269,6 @@ class PtyManager {
       });
     }
     
-    // Update activity status
-    this.sessionMonitor.updateActivity(sessionId, {
-      isActive: true,
-      lastActivity: new Date()
-    });
   }
 }
 ```

@@ -2,7 +2,6 @@ import { fixture } from '@open-wc/testing';
 import { LitElement, type TemplateResult } from 'lit';
 import { vi } from 'vitest';
 import type { Session } from '../../shared/types';
-import type { ActivityStatus } from '../types/test-types';
 import { createTestSession } from './test-factories';
 
 /**
@@ -224,16 +223,4 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     workingDir,
     startedAt,
   });
-}
-
-/**
- * Creates mock activity status for testing
- */
-export function createMockActivityStatus(overrides: Partial<ActivityStatus> = {}): ActivityStatus {
-  return {
-    isActive: false,
-    timestamp: new Date().toISOString(),
-    session: createMockSession(),
-    ...overrides,
-  };
 }

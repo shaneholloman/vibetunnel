@@ -33,8 +33,11 @@ pub fn writeSessionInfo(path: []const u8, info: SessionInfo, allocator: std.mem.
 
     var file = try std.fs.cwd().createFile(temp_path, .{ .truncate = true, .read = false, .mode = 0o644 });
     defer file.close();
-    try std.json.stringify(info, .{ .emit_null_optional_fields = false }, file.writer());
-    try file.writeAll("\n");
+    var buffer: [4096]u8 = undefined;
+    var writer = file.writer(&buffer);
+    try std.json.Stringify.value(info, .{ .emit_null_optional_fields = false, .whitespace = .indent_2 }, &writer.interface);
+    try writer.interface.writeAll("\n");
+    try writer.end();
 
     try std.fs.cwd().rename(temp_path, path);
 }
@@ -57,6 +60,16 @@ pub fn readSessionName(allocator: std.mem.Allocator, path: []const u8) !?[]u8 {
 
     if (parsed.value != .object) return null;
     const name_value = parsed.value.object.get("name") orelse return null;
-    if (name_value.* != .string) return null;
-    return allocator.dupe(u8, name_value.string);
+    if (name_value != .string) return null;
+    const name_copy = allocator.dupe(u8, name_value.string) catch return null;
+    return name_copy;
+}
+
+pub fn updateSessionName(allocator: std.mem.Allocator, path: []const u8, name: []const u8) !void {
+    var parsed = try readSessionInfo(allocator, path);
+    defer parsed.deinit();
+
+    var info = parsed.value;
+    info.name = name;
+    try writeSessionInfo(path, info, allocator);
 }

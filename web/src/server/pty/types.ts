@@ -86,7 +86,7 @@ export interface PtySession {
   // Title update tracking
   titleUpdateNeeded?: boolean;
   currentTitle?: string;
-  // Write activity tracking for safe title injection
+  // Write tracking for safe title injection
   lastWriteTimestamp?: number;
   titleInjectionTimer?: NodeJS.Timeout;
   pendingTitleToInject?: string;
@@ -95,13 +95,6 @@ export interface PtySession {
   sessionJsonWatcher?: fs.FSWatcher;
   // Interval for polling session.json changes
   sessionJsonInterval?: NodeJS.Timeout;
-  // Activity status for external tracking
-  activityStatus?: {
-    specificStatus?: {
-      app: string;
-      status: string;
-    };
-  };
   // Connected socket clients for broadcasting
   connectedClients?: Set<net.Socket>;
   // Foreground process tracking

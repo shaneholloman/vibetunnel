@@ -4,7 +4,7 @@
 - Per-process Zig forwarder replaces Node `fwd` path; minimal latency + RSS.
 - Unix/macOS only; no daemon.
 - Node web server stays optional; consumes same session files + IPC.
-- Remove Claude activity detection feature everywhere.
+- No Claude activity detection feature (removed).
 
 ## Non-Goals
 - Windows support.
@@ -15,7 +15,7 @@
 - `vt` wrapper → `vibetunnel fwd` (Node) → node-pty.
 - Writes `~/.vibetunnel/control/<id>/session.json` + `stdout` (asciinema v2).
 - IPC via `ipc.sock` with framed protocol (stdin/resize/kill/update-title).
-- Claude activity detection + `claude-turn` notifications.
+- Dynamic title mode is legacy alias of static (no activity tracking).
 
 ## Target Architecture (per-process)
 ```
@@ -34,10 +34,11 @@ vt -> vibetunnel-fwd (zig) -> PTY + stdout file + ipc.sock + session.json
 - Env: `VIBETUNNEL_SESSION_ID`, `VIBETUNNEL_TITLE_MODE`, `VIBETUNNEL_LOG_LEVEL`.
 
 ## Claude Activity Detection Removal (explicit)
-- Remove `ActivityDetector` and `claude-turn` event path.
-- Remove config toggle + UI setting + push notification type.
-- Title mode `dynamic` becomes alias of `static` (no activity).
-- Delete tests tied to `claude-turn` and activity detection.
+Done:
+- Removed `ActivityDetector` and `claude-turn` event path.
+- Removed config toggle + UI setting + push notification type.
+- Title mode `dynamic` is alias of `static` (no activity).
+- Deleted tests tied to `claude-turn` and activity detection.
 
 ## Refactor Phases
 
@@ -97,12 +98,9 @@ vt -> vibetunnel-fwd (zig) -> PTY + stdout file + ipc.sock + session.json
   - `web/scripts/build-npm.js`: include Zig binary.
   - `mac/scripts/build-web-frontend.sh`: copy Zig binary into app bundle.
 
-### Phase 6: Remove Claude Activity Detection
-- Server:
-  - delete `web/src/server/utils/activity-detector.ts` + tests.
-  - remove `claudeTurn` events in `pty-manager`, `session-monitor`, `server.ts`.
-  - remove `claude-turn` SSE, config, settings UI, push-notification toggles.
-- Types + docs update.
+### Phase 6: Cleanup (post-forwarder)
+- Ensure STATUS_UPDATE is ignored end-to-end.
+- Keep docs + tests aligned with legacy dynamic title mode.
 
 ## Test Plan
 - Zig unit tests: frame parser, asciinema writer, PTY resize.
@@ -113,7 +111,7 @@ vt -> vibetunnel-fwd (zig) -> PTY + stdout file + ipc.sock + session.json
 - Web server:
   - stream watcher reads Zig stdout file.
   - `vt title` updates session name.
-- Remove or update all `claude-turn` tests.
+- Verified no `claude-turn` tests remain.
 
 ## Rollout Plan
 - Feature flag: `VIBETUNNEL_USE_ZIG_FWD=1`.

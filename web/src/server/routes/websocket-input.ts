@@ -11,7 +11,6 @@
 import type { WebSocket as WSWebSocket } from 'ws';
 import type { SessionInput, SpecialKey } from '../../shared/types.js';
 import type { PtyManager } from '../pty/index.js';
-import type { ActivityMonitor } from '../services/activity-monitor.js';
 import type { AuthService } from '../services/auth-service.js';
 import type { RemoteRegistry } from '../services/remote-registry.js';
 import type { TerminalManager } from '../services/terminal-manager.js';
@@ -22,7 +21,6 @@ const logger = createLogger('websocket-input');
 interface WebSocketInputHandlerOptions {
   ptyManager: PtyManager;
   terminalManager: TerminalManager;
-  activityMonitor: ActivityMonitor;
   remoteRegistry: RemoteRegistry | null;
   authService: AuthService;
   isHQMode: boolean;
@@ -53,7 +51,6 @@ interface WebSocketInputHandlerOptions {
  * const handler = new WebSocketInputHandler({
  *   ptyManager,
  *   terminalManager,
- *   activityMonitor,
  *   remoteRegistry,
  *   authService,
  *   isHQMode: true
@@ -73,7 +70,6 @@ interface WebSocketInputHandlerOptions {
 export class WebSocketInputHandler {
   private ptyManager: PtyManager;
   private terminalManager: TerminalManager;
-  private activityMonitor: ActivityMonitor;
   private remoteRegistry: RemoteRegistry | null;
   private authService: AuthService;
   private isHQMode: boolean;
@@ -82,7 +78,6 @@ export class WebSocketInputHandler {
   constructor(options: WebSocketInputHandlerOptions) {
     this.ptyManager = options.ptyManager;
     this.terminalManager = options.terminalManager;
-    this.activityMonitor = options.activityMonitor;
     this.remoteRegistry = options.remoteRegistry;
     this.authService = options.authService;
     this.isHQMode = options.isHQMode;

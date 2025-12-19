@@ -196,9 +196,7 @@ export class VibeTunnelApp extends LitElement {
         const sessionNumber = e.key === '0' ? 10 : Number.parseInt(e.key, 10);
 
         // Get visible sessions in the same order as the session list
-        const activeSessions = this.sessions.filter(
-          (session) => session.status === 'running' && session.activityStatus?.isActive !== false
-        );
+        const activeSessions = this.sessions.filter((session) => session.status === 'running');
 
         // Check if the requested session exists
         if (sessionNumber > 0 && sessionNumber <= activeSessions.length) {
@@ -619,23 +617,6 @@ export class VibeTunnelApp extends LitElement {
         if (response.ok) {
           const newSessions = (await response.json()) as Session[];
 
-          // Debug: Log sessions with activity status
-          const sessionsWithActivity = newSessions.filter((s) => s.activityStatus);
-          if (sessionsWithActivity.length > 0) {
-            logger.debug(
-              'Sessions with activity status:',
-              sessionsWithActivity.map((s) => ({
-                id: s.id,
-                name: s.name,
-                command: s.command,
-                status: s.status,
-                activityStatus: s.activityStatus,
-              }))
-            );
-          } else {
-            logger.debug('No sessions have activity status');
-          }
-
           // Preserve Git information and reuse existing session objects when possible
           // This prevents unnecessary re-renders by maintaining object references
           const updatedSessions = newSessions.map((newSession) => {
@@ -647,7 +628,6 @@ export class VibeTunnelApp extends LitElement {
                 existingSession.status !== newSession.status ||
                 existingSession.name !== newSession.name ||
                 existingSession.workingDir !== newSession.workingDir ||
-                existingSession.activityStatus !== newSession.activityStatus ||
                 existingSession.exitCode !== newSession.exitCode ||
                 // Check if Git info has been added in the new data
                 (!existingSession.gitRepoPath && newSession.gitRepoPath) ||
@@ -672,7 +652,6 @@ export class VibeTunnelApp extends LitElement {
                 existingSession.status = newSession.status;
                 existingSession.name = newSession.name;
                 existingSession.workingDir = newSession.workingDir;
-                existingSession.activityStatus = newSession.activityStatus;
                 existingSession.exitCode = newSession.exitCode;
                 existingSession.lastModified = newSession.lastModified;
                 existingSession.active = newSession.active;

@@ -9,7 +9,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { WebSocket as WSWebSocket } from 'ws';
 import type { PtyManager } from '../../server/pty/pty-manager';
 import { WebSocketInputHandler } from '../../server/routes/websocket-input';
-import type { ActivityMonitor } from '../../server/services/activity-monitor';
 import type { AuthService } from '../../server/services/auth-service';
 import type { RemoteRegistry } from '../../server/services/remote-registry';
 import type { TerminalManager } from '../../server/services/terminal-manager';
@@ -84,7 +83,6 @@ describe('WebSocketInputHandler', () => {
   let handler: WebSocketInputHandler;
   let mockPtyManager: PtyManager;
   let mockTerminalManager: TerminalManager;
-  let mockActivityMonitor: ActivityMonitor;
   let mockAuthService: AuthService;
   let mockRemoteRegistry: RemoteRegistry | null;
 
@@ -95,7 +93,6 @@ describe('WebSocketInputHandler', () => {
     } as unknown as PtyManager;
 
     mockTerminalManager = {} as unknown as TerminalManager;
-    mockActivityMonitor = {} as unknown as ActivityMonitor;
     mockAuthService = {} as unknown as AuthService;
   });
 
@@ -117,7 +114,6 @@ describe('WebSocketInputHandler', () => {
       handler = new WebSocketInputHandler({
         ptyManager: mockPtyManager,
         terminalManager: mockTerminalManager,
-        activityMonitor: mockActivityMonitor,
         remoteRegistry: mockRemoteRegistry,
         authService: mockAuthService,
         isHQMode: false,
@@ -315,7 +311,6 @@ describe('WebSocketInputHandler', () => {
       handler = new WebSocketInputHandler({
         ptyManager: mockPtyManager,
         terminalManager: mockTerminalManager,
-        activityMonitor: mockActivityMonitor,
         remoteRegistry: mockRemoteRegistry,
         authService: mockAuthService,
         isHQMode: true,
@@ -451,7 +446,6 @@ describe('WebSocketInputHandler', () => {
       handler = new WebSocketInputHandler({
         ptyManager: mockPtyManager,
         terminalManager: mockTerminalManager,
-        activityMonitor: mockActivityMonitor,
         remoteRegistry: null,
         authService: mockAuthService,
         isHQMode: false,
@@ -511,7 +505,6 @@ describe('WebSocketInputHandler', () => {
       handler = new WebSocketInputHandler({
         ptyManager: mockPtyManager,
         terminalManager: mockTerminalManager,
-        activityMonitor: mockActivityMonitor,
         remoteRegistry: null,
         authService: mockAuthService,
         isHQMode: false,

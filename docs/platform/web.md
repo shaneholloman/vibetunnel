@@ -3,7 +3,7 @@
 ## Setup
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 22.12+
 - Bun 1.0+
 - pnpm 8+
 

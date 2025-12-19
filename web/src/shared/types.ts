@@ -103,33 +103,11 @@ export interface Session extends SessionInfo {
   lastModified: string;
   active?: boolean;
 
-  // Activity information (for dynamic title mode)
-  activityStatus?: {
-    isActive: boolean;
-    specificStatus?: {
-      app: string;
-      status: string;
-    };
-  };
-
   // Source information (for HQ mode)
   source?: 'local' | 'remote';
   remoteId?: string;
   remoteName?: string;
   remoteUrl?: string;
-}
-
-/**
- * Activity status for a session
- */
-export interface SessionActivity {
-  isActive: boolean;
-  timestamp: string;
-  session?: SessionInfo;
-  specificStatus?: {
-    app: string;
-    status: string;
-  };
 }
 
 /**
@@ -139,7 +117,7 @@ export enum TitleMode {
   NONE = 'none', // No title management
   FILTER = 'filter', // Block all title changes from apps
   STATIC = 'static', // Static title: path — command — session
-  DYNAMIC = 'dynamic', // Static + live activity indicators
+  DYNAMIC = 'dynamic', // Legacy alias of static (no activity indicators)
 }
 
 /**

@@ -4,10 +4,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
 import { cellsToText } from '../../shared/terminal-text-formatter.js';
-import type { ServerStatus, Session, SessionActivity, TitleMode } from '../../shared/types.js';
+import type { ServerStatus, Session, TitleMode } from '../../shared/types.js';
 import { HttpMethod } from '../../shared/types.js';
 import { PtyError, type PtyManager } from '../pty/index.js';
-import type { ActivityMonitor } from '../services/activity-monitor.js';
 import type { RemoteRegistry } from '../services/remote-registry.js';
 import type { StreamWatcher } from '../services/stream-watcher.js';
 import { tailscaleServeService } from '../services/tailscale-serve-service.js';
@@ -29,7 +28,6 @@ interface SessionRoutesConfig {
   streamWatcher: StreamWatcher;
   remoteRegistry: RemoteRegistry | null;
   isHQMode: boolean;
-  activityMonitor: ActivityMonitor;
 }
 
 // Helper function to resolve path with default fallback
@@ -51,8 +49,7 @@ function resolvePath(inputPath: string, defaultPath: string): string {
 
 export function createSessionRoutes(config: SessionRoutesConfig): Router {
   const router = Router();
-  const { ptyManager, terminalManager, streamWatcher, remoteRegistry, isHQMode, activityMonitor } =
-    config;
+  const { ptyManager, terminalManager, streamWatcher, remoteRegistry, isHQMode } = config;
 
   // Server status endpoint
   router.get('/server/status', async (_req, res) => {
@@ -355,107 +352,6 @@ export function createSessionRoutes(config: SessionRoutesConfig): Router {
       } else {
         res.status(500).json({ error: 'Failed to create session' });
       }
-    }
-  });
-
-  // Get activity status for all sessions
-  router.get('/sessions/activity', async (_req, res) => {
-    logger.debug('getting activity status for all sessions');
-    try {
-      const activityStatus: Record<string, SessionActivity> = {};
-
-      // Get local sessions activity
-      const localActivity = activityMonitor.getActivityStatus();
-      Object.assign(activityStatus, localActivity);
-
-      // If in HQ mode, get activity from remote servers
-      if (isHQMode && remoteRegistry) {
-        const remotes = remoteRegistry.getRemotes();
-
-        // Fetch activity from each remote in parallel
-        const remotePromises = remotes.map(async (remote) => {
-          try {
-            const response = await fetch(`${remote.url}/api/sessions/activity`, {
-              headers: {
-                Authorization: `Bearer ${remote.token}`,
-              },
-              signal: AbortSignal.timeout(5000),
-            });
-
-            if (response.ok) {
-              const remoteActivity = await response.json();
-              return {
-                remote: {
-                  id: remote.id,
-                  name: remote.name,
-                  url: remote.url,
-                },
-                activity: remoteActivity,
-              };
-            }
-          } catch (error) {
-            logger.error(`failed to get activity from remote ${remote.name}:`, error);
-          }
-          return null;
-        });
-
-        const remoteResults = await Promise.all(remotePromises);
-
-        // Merge remote activity data
-        for (const result of remoteResults) {
-          if (result?.activity) {
-            // Merge remote activity data
-            Object.assign(activityStatus, result.activity);
-          }
-        }
-      }
-
-      res.json(activityStatus);
-    } catch (error) {
-      logger.error('error getting activity status:', error);
-      res.status(500).json({ error: 'Failed to get activity status' });
-    }
-  });
-
-  // Get activity status for a specific session
-  router.get('/sessions/:sessionId/activity', async (req, res) => {
-    const sessionId = req.params.sessionId;
-
-    try {
-      // If in HQ mode, check if this is a remote session
-      if (isHQMode && remoteRegistry) {
-        const remote = remoteRegistry.getRemoteBySessionId(sessionId);
-        if (remote) {
-          // Forward to remote server
-          try {
-            const response = await fetch(`${remote.url}/api/sessions/${sessionId}/activity`, {
-              headers: {
-                Authorization: `Bearer ${remote.token}`,
-              },
-              signal: AbortSignal.timeout(5000),
-            });
-
-            if (!response.ok) {
-              return res.status(response.status).json(await response.json());
-            }
-
-            return res.json(await response.json());
-          } catch (error) {
-            logger.error(`failed to get activity from remote ${remote.name}:`, error);
-            return res.status(503).json({ error: 'Failed to reach remote server' });
-          }
-        }
-      }
-
-      // Local session handling
-      const activityStatus = activityMonitor.getSessionActivityStatus(sessionId);
-      if (!activityStatus) {
-        return res.status(404).json({ error: 'Session not found' });
-      }
-      res.json(activityStatus);
-    } catch (error) {
-      logger.error(`error getting activity status for session ${sessionId}:`, error);
-      res.status(500).json({ error: 'Failed to get activity status' });
     }
   });
 

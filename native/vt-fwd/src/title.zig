@@ -15,12 +15,12 @@ pub fn abbreviatePath(allocator: std.mem.Allocator, full_path: []const u8, home:
     path_buf = try replaceOwned(allocator, path_buf, "/Documents/", "/Docs/");
     path_buf = try replaceOwned(allocator, path_buf, "/Applications/", "/Apps/");
 
-    var parts = std.ArrayList([]const u8).init(allocator);
-    defer parts.deinit();
+    var parts = std.ArrayList([]const u8).empty;
+    defer parts.deinit(allocator);
     var it = std.mem.splitScalar(u8, path_buf, '/');
     while (it.next()) |part| {
         if (part.len == 0) continue;
-        try parts.append(part);
+        try parts.append(allocator, part);
     }
 
     if (parts.items.len > 3) {
@@ -81,15 +81,15 @@ pub fn generateTitleSequence(
         }
     }
 
-    var parts = std.ArrayList([]const u8).init(allocator);
-    defer parts.deinit();
-    try parts.append(display_path);
-    try parts.append(cmd_name);
+    var parts = std.ArrayList([]const u8).empty;
+    defer parts.deinit(allocator);
+    try parts.append(allocator, display_path);
+    try parts.append(allocator, cmd_name);
 
     if (session_name_opt) |raw_name| {
         const trimmed = std.mem.trim(u8, raw_name, " \t\r\n");
         if (trimmed.len > 0 and !isRedundantName(trimmed, cmd_name)) {
-            try parts.append(trimmed);
+            try parts.append(allocator, trimmed);
         }
     }
 
@@ -149,17 +149,17 @@ fn isRedundantName(name: []const u8, cmd_name: []const u8) bool {
 }
 
 pub fn sanitizeTitle(allocator: std.mem.Allocator, title: []const u8) ![]u8 {
-    var list = std.ArrayList(u8).init(allocator);
-    errdefer list.deinit();
+    var list = std.ArrayList(u8).empty;
+    errdefer list.deinit(allocator);
 
     const view = std.unicode.Utf8View.init(title) catch {
         for (title) |b| {
             if (b >= 32 and b != 127 and (b < 128 or b > 159)) {
-                try list.append(b);
+                try list.append(allocator, b);
             }
             if (list.items.len >= 256) break;
         }
-        return list.toOwnedSlice();
+        return list.toOwnedSlice(allocator);
     };
 
     var it = view.iterator();
@@ -167,11 +167,11 @@ pub fn sanitizeTitle(allocator: std.mem.Allocator, title: []const u8) ![]u8 {
     while (it.nextCodepointSlice()) |slice| {
         const cp = std.unicode.utf8Decode(slice) catch continue;
         if (cp >= 32 and cp != 127 and (cp < 128 or cp > 159)) {
-            try list.appendSlice(slice);
+            try list.appendSlice(allocator, slice);
             count += 1;
             if (count >= 256) break;
         }
     }
 
-    return list.toOwnedSlice();
+    return list.toOwnedSlice(allocator);
 }

@@ -41,10 +41,6 @@ vi.mock('../../server/services/terminal-manager.js', () => ({
   TerminalManager: vi.fn(),
 }));
 
-vi.mock('../../server/services/activity-monitor.js', () => ({
-  ActivityMonitor: vi.fn(),
-}));
-
 vi.mock('../../server/services/stream-watcher.js', () => ({
   StreamWatcher: vi.fn(),
 }));
@@ -104,7 +100,6 @@ describe('Session Creation with Git Info', () => {
     app.use(express.json());
 
     const mockTerminalManager = { getTerminalById: vi.fn() };
-    const mockActivityMonitor = {};
     const mockStreamWatcher = {};
     const mockRemoteRegistry = null;
 
@@ -114,7 +109,6 @@ describe('Session Creation with Git Info', () => {
       streamWatcher: mockStreamWatcher,
       remoteRegistry: mockRemoteRegistry,
       isHQMode: false,
-      activityMonitor: mockActivityMonitor,
     };
 
     app.use('/api', sessionsModule.createSessionRoutes(config));

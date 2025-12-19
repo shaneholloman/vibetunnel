@@ -11,7 +11,6 @@ import { createGitRoutes } from '../../server/routes/git.js';
 import type { SessionRoutesConfig } from '../../server/routes/sessions.js';
 import { createSessionRoutes } from '../../server/routes/sessions.js';
 import { createWorktreeRoutes } from '../../server/routes/worktrees.js';
-import { ActivityMonitor } from '../../server/services/activity-monitor.js';
 import { RemoteRegistry } from '../../server/services/remote-registry.js';
 import { StreamWatcher } from '../../server/services/stream-watcher.js';
 import { TerminalManager } from '../../server/services/terminal-manager.js';
@@ -31,7 +30,6 @@ export interface TestServerResult {
   app: express.Application;
   ptyManager: PtyManager;
   terminalManager: TerminalManager;
-  activityMonitor: ActivityMonitor;
   streamWatcher: StreamWatcher;
   cleanup: () => Promise<void>;
 }
@@ -57,7 +55,6 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
   // Initialize services
   const ptyManager = new PtyManager(controlPath);
   const terminalManager = new TerminalManager();
-  const activityMonitor = new ActivityMonitor();
   const streamWatcher = new StreamWatcher();
   const remoteRegistry = isHQMode ? new RemoteRegistry() : null;
 
@@ -72,7 +69,6 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
     streamWatcher,
     remoteRegistry,
     isHQMode,
-    activityMonitor,
   };
 
   // Mount routes based on options
@@ -109,7 +105,6 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
     }
 
     // Stop services
-    activityMonitor.stop();
     // StreamWatcher doesn't have a public stop method - it cleans up internally
     if (remoteRegistry) {
       remoteRegistry.stop();
@@ -120,7 +115,6 @@ export async function createTestServer(options: TestServerOptions = {}): Promise
     app,
     ptyManager,
     terminalManager,
-    activityMonitor,
     streamWatcher,
     cleanup,
   };

@@ -26,21 +26,10 @@ export interface SessionState {
   isRunning: boolean;
   pid?: number;
 
-  // Activity tracking
-  activityStatus?: {
-    isActive: boolean;
-    lastActivity?: Date;
-    specificStatus?: {
-      app: string;
-      status: string;
-    };
-  };
-
   // Command tracking
   commandStartTime?: Date;
   lastCommand?: string;
   lastExitCode?: number;
-
 }
 
 export interface CommandFinishedEvent {
@@ -78,39 +67,14 @@ export class SessionMonitor extends EventEmitter {
     this.ptyManager.on('commandFinished', (data: CommandFinishedEvent) => {
       this.handleCommandFinished(data);
     });
-
   }
 
   /**
-   * Update session state with activity information
-   */
-  public updateSessionActivity(sessionId: string, isActive: boolean, specificApp?: string) {
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    // Update activity status
-    session.activityStatus = {
-      isActive,
-      lastActivity: isActive ? new Date() : session.activityStatus?.lastActivity,
-      specificStatus: specificApp
-        ? {
-            app: specificApp,
-            status: isActive ? 'active' : 'idle',
-          }
-        : session.activityStatus?.specificStatus,
-    };
-
-  }
-
-  /**
-   * Track PTY output for activity detection and bell characters
+   * Track PTY output for bell characters
    */
   public trackPtyOutput(sessionId: string, data: string) {
     const session = this.sessions.get(sessionId);
     if (!session) return;
-
-    // Update last activity
-    this.updateSessionActivity(sessionId, true);
 
     // Detect bell character
     if (data.includes('\x07')) {
@@ -121,7 +85,6 @@ export class SessionMonitor extends EventEmitter {
         timestamp: new Date().toISOString(),
       });
     }
-
   }
 
   /**
@@ -163,9 +126,6 @@ export class SessionMonitor extends EventEmitter {
 
     session.lastCommand = command;
     session.commandStartTime = new Date();
-
-    // Mark as active when a new command starts
-    this.updateSessionActivity(sessionId, true);
   }
 
   /**
@@ -273,7 +233,6 @@ export class SessionMonitor extends EventEmitter {
     this.handleCommandCompletion(data.sessionId, data.exitCode);
   }
 
-
   /**
    * Get all active sessions
    */
@@ -300,12 +259,12 @@ export class SessionMonitor extends EventEmitter {
         const state: SessionState = {
           id: session.id,
           name: session.name,
-        command: session.command,
-        workingDir: session.workingDir,
-        status: 'running',
-        isRunning: true,
-        pid: session.pid,
-      };
+          command: session.command,
+          workingDir: session.workingDir,
+          status: 'running',
+          isRunning: true,
+          pid: session.pid,
+        };
 
         this.sessions.set(session.id, state);
       }

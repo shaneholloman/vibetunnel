@@ -755,7 +755,7 @@
     @apply scale-95;
   }
   
-  /* Pulse animation for activity indicators */
+  /* Pulse animation utility */
   .pulse-slow {
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }

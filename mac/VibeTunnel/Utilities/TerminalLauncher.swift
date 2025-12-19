@@ -716,12 +716,11 @@ final class TerminalLauncher {
         // Escape the working directory for shell
         let escapedWorkingDir = expandedWorkingDir.replacingOccurrences(of: "\"", with: "\\\"")
 
-        // Construct the full command for Bun server
-        // For Bun server, use fwd to create sessions
-        self.logger.info("Using Bun server session creation via fwd")
-        let bunPath = self.findBunExecutable()
-        let bunCommand = self.buildBunCommand(
-            bunPath: bunPath,
+        // Construct the full command for forwarder
+        self.logger.info("Using forwarder session creation")
+        let forwarderPath = self.findForwarderBinary() ?? self.findBunExecutable()
+        let bunCommand = self.buildForwarderCommand(
+            forwarderPath: forwarderPath,
             userCommand: command,
             workingDir: escapedWorkingDir,
             sessionId: sessionId)
@@ -768,11 +767,11 @@ final class TerminalLauncher {
         let bunServerActive = Bundle.main.path(forResource: "vibetunnel", ofType: nil) != nil &&
             !command.contains("TTY_SESSION_ID=") // If command already has session ID, it's from Go server
         if bunServerActive {
-            // For Bun server, use fwd command
-            self.logger.info("Using Bun server session creation via fwd")
+            // For Bun server, use forwarder command
+            self.logger.info("Using forwarder session creation via fwd")
 
-            // Find the Bun executable path
-            let bunPath = self.findBunExecutable()
+            // Find the forwarder executable path
+            let forwarderPath = self.findForwarderBinary() ?? self.findBunExecutable()
 
             // When called from socket, command is already pre-formatted
             if command.contains("TTY_SESSION_ID=") {
@@ -781,16 +780,16 @@ final class TerminalLauncher {
                 // We need to find where the actual command starts (after "vibetunnel ")
                 if let vibetunnelRange = command.range(of: "vibetunnel ") {
                     let actualCommand = String(command[vibetunnelRange.upperBound...])
-                    let bunCommand = self.buildBunCommand(
-                        bunPath: bunPath,
+                    let bunCommand = self.buildForwarderCommand(
+                        forwarderPath: forwarderPath,
                         userCommand: actualCommand,
                         workingDir: escapedDir,
                         sessionId: sessionId)
                     fullCommand = "cd \"\(escapedDir)\" && \(bunCommand) && exit"
                 } else {
                     // Fallback if format is different
-                    let bunCommand = self.buildBunCommand(
-                        bunPath: bunPath,
+                    let bunCommand = self.buildForwarderCommand(
+                        forwarderPath: forwarderPath,
                         userCommand: command,
                         workingDir: escapedDir,
                         sessionId: sessionId)
@@ -798,8 +797,8 @@ final class TerminalLauncher {
                 }
             } else {
                 // Command is just the user command
-                let bunCommand = self.buildBunCommand(
-                    bunPath: bunPath,
+                let bunCommand = self.buildForwarderCommand(
+                    forwarderPath: forwarderPath,
                     userCommand: command,
                     workingDir: escapedDir,
                     sessionId: sessionId)
@@ -817,6 +816,13 @@ final class TerminalLauncher {
             if command.contains("TTY_SESSION_ID=") {
                 // Command is pre-formatted from Go server, add cd and exit
                 fullCommand = "cd \"\(escapedDir)\" && \(command) && exit"
+            } else if let forwarderPath = self.findForwarderBinary() {
+                let forwarderCommand = self.buildForwarderCommand(
+                    forwarderPath: forwarderPath,
+                    userCommand: command,
+                    workingDir: escapedDir,
+                    sessionId: sessionId)
+                fullCommand = "cd \"\(escapedDir)\" && \(forwarderCommand) && exit"
             } else {
                 // Command is just the user command, need to add vibetunnel
                 fullCommand = "cd \"\(escapedDir)\" && TTY_SESSION_ID=\"\(sessionId)\" \(vibetunnel) \(command) && exit"
@@ -854,6 +860,16 @@ final class TerminalLauncher {
         return "echo 'VibeTunnel: vibetunnel binary not found in app bundle'; false"
     }
 
+    private func findForwarderBinary() -> String? {
+        if let bundledForwarder = Bundle.main.path(forResource: "vibetunnel-fwd", ofType: nil) {
+            if FileManager.default.fileExists(atPath: bundledForwarder) {
+                self.logger.info("Using bundled vibetunnel-fwd at: \(bundledForwarder)")
+                return bundledForwarder
+            }
+        }
+        return nil
+    }
+
     private func findBunExecutable() -> String {
         // Look for Bun executable in Resources
         if let bundledPath = Bundle.main.path(forResource: "vibetunnel", ofType: nil) {
@@ -867,20 +883,21 @@ final class TerminalLauncher {
         return "echo 'VibeTunnel: Bun executable not found in app bundle'; false"
     }
 
-    private func buildBunCommand(
-        bunPath: String,
+    private func buildForwarderCommand(
+        forwarderPath: String,
         userCommand: String,
         workingDir: String,
         sessionId: String? = nil)
         -> String
     {
-        // Bun executable has fwd command built-in
-        self.logger.info("Using Bun executable for session creation")
+        let forwarderName = (forwarderPath as NSString).lastPathComponent
+        let usesSubcommand = forwarderName != "vibetunnel-fwd"
+        let baseCommand = usesSubcommand ? "\"\(forwarderPath)\" fwd" : "\"\(forwarderPath)\""
         if let sessionId {
             // Pass the pre-generated session ID to fwd
-            return "\"\(bunPath)\" fwd --session-id \(sessionId) \(userCommand)"
+            return "\(baseCommand) --session-id \(sessionId) \(userCommand)"
         } else {
-            return "\"\(bunPath)\" fwd \(userCommand)"
+            return "\(baseCommand) \(userCommand)"
         }
     }
 }

@@ -14,7 +14,7 @@
   <a href="https://github.com/amantus-ai/vibetunnel/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-blue" alt="Download"></a>
   <a href="https://www.npmjs.com/package/vibetunnel"><img src="https://img.shields.io/npm/v/vibetunnel.svg" alt="npm version"></a>
   <a href="https://formulae.brew.sh/cask/vibetunnel"><img src="https://img.shields.io/homebrew/cask/v/vibetunnel" alt="Homebrew"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20+-339933?logo=node.js" alt="Node.js 20+"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-22.12%2B-339933?logo=node.js" alt="Node.js 22.12+"></a>
   <a href="https://discord.gg/3Ub3EUwrcR"><img src="https://img.shields.io/discord/1394471066990280875?label=Discord&logo=discord" alt="Discord"></a>
   <a href="https://twitter.com/vibetunnel"><img src="https://img.shields.io/twitter/follow/vibetunnel?style=social" alt="Twitter"></a>
 </p>
@@ -81,7 +81,7 @@ This gives you the full VibeTunnel server with web UI, just without the macOS me
 
 **macOS App**: Requires an Apple Silicon Mac (M1+). Intel Macs are not supported for the native app.
 
-**npm Package**: Works on any system with Node.js 20+, including Intel Macs and Linux. Windows is not yet supported ([#252](https://github.com/amantus-ai/vibetunnel/issues/252)).
+**npm Package**: Works on any system with Node.js 22.12+, including Intel Macs and Linux. Windows is not yet supported ([#252](https://github.com/amantus-ai/vibetunnel/issues/252)).
 
 ### 1. Download & Install
 
@@ -423,7 +423,7 @@ yarn global add vibetunnel
 pnpm add -g vibetunnel
 ```
 
-**Requirements**: Node.js 20.0.0 or higher
+**Requirements**: Node.js 22.12.0 or higher
 
 ### Running the VibeTunnel Server
 
@@ -628,8 +628,8 @@ npm run build:npm
 ```
 
 This creates prebuilt binaries for:
-- macOS (x64, arm64) - Node.js 20, 22, 23, 24
-- Linux (x64, arm64) - Node.js 20, 22, 23, 24
+- macOS (x64, arm64) - Node.js 22, 23, 24
+- Linux (x64, arm64) - Node.js 22, 23, 24
 
 #### Build Options
 ```bash
@@ -657,7 +657,7 @@ npm publish
 ### Prerequisites
 - macOS 14.0+ (Sonoma) on Apple Silicon (M1+)
 - Xcode 16.0+
-- Node.js 20+ (minimum supported version)
+- Node.js 22.12+ (minimum supported version)
 
 ### Build Steps
 

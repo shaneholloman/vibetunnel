@@ -80,7 +80,7 @@ const SHELL_COMMANDS = new Set(['cd', 'ls', 'pwd', 'echo', 'export', 'alias', 'u
  * - Managing terminal resizing from both browser and host terminal
  * - Recording sessions in asciinema format for playback
  * - Communicating with external sessions via Unix domain sockets
- * - Dynamic terminal title management with activity detection
+ * - Dynamic terminal title management
  * - Session persistence and recovery across server restarts
  *
  * The PtyManager supports both in-memory sessions (where the PTY is managed directly)
@@ -180,7 +180,7 @@ export class PtyManager extends EventEmitter {
   }
 
   /**
-   * Set the SessionMonitor instance for activity tracking
+   * Set the SessionMonitor instance for notification tracking
    */
   public setSessionMonitor(monitor: SessionMonitor): void {
     this.sessionMonitor = monitor;
@@ -501,17 +501,7 @@ export class PtyManager extends EventEmitter {
       }
 
       // Create session object
-      // Auto-detect Claude commands and set dynamic mode if no title mode specified
-      let titleMode = options.titleMode;
-      if (!titleMode) {
-        // Check all command arguments for Claude
-        const isClaudeCommand = command.some((arg) => arg.toLowerCase().includes('claude'));
-        if (isClaudeCommand) {
-          titleMode = TitleMode.DYNAMIC;
-          logger.log(chalk.cyan('✓ Auto-selected dynamic title mode for Claude'));
-          logger.debug(`Detected Claude in command: ${command.join(' ')}`);
-        }
-      }
+      const titleMode = options.titleMode;
 
       // Detect if this is a tmux attachment session
       const isTmuxAttachment =
@@ -635,7 +625,7 @@ export class PtyManager extends EventEmitter {
     const inputQueue = new WriteQueue();
     session.inputQueue = inputQueue;
 
-    // Setup periodic title updates for both static and dynamic modes
+    // Setup periodic title updates for static/dynamic (dynamic is legacy alias)
     if (
       session.titleMode !== TitleMode.NONE &&
       session.titleMode !== TitleMode.FILTER &&
@@ -651,7 +641,7 @@ export class PtyManager extends EventEmitter {
     ptyProcess.onData((data: string) => {
       let processedData = data;
 
-      // Track PTY output in SessionMonitor for activity and bell detection
+      // Track PTY output in SessionMonitor for bell detection
       if (this.sessionMonitor) {
         this.sessionMonitor.trackPtyOutput(session.id, data);
       }
@@ -946,29 +936,7 @@ export class PtyManager extends EventEmitter {
         }
 
         case MessageType.STATUS_UPDATE: {
-          const status = data as { app: string; status: string };
-          // Update activity status for the session
-          if (!session.activityStatus) {
-            session.activityStatus = {};
-          }
-          session.activityStatus.specificStatus = {
-            app: status.app,
-            status: status.status,
-          };
-          logger.debug(`Updated status for session ${session.id}:`, status);
-
-          // Broadcast status update to all connected clients
-          if (session.connectedClients && session.connectedClients.size > 0) {
-            const message = frameMessage(MessageType.STATUS_UPDATE, status);
-            for (const client of session.connectedClients) {
-              try {
-                client.write(message);
-              } catch (err) {
-                logger.debug(`Failed to broadcast status to client:`, err);
-              }
-            }
-            logger.debug(`Broadcasted status update to ${session.connectedClients.size} clients`);
-          }
+          logger.debug(`Ignoring status update for session ${session.id}`);
           break;
         }
 
@@ -1660,23 +1628,7 @@ export class PtyManager extends EventEmitter {
     }
 
     // Get all sessions from storage
-    const sessions = this.sessionManager.listSessions();
-
-    // Enhance with activity information
-    return sessions.map((session) => {
-      // First try to get activity from active session
-      const activeSession = this.sessions.get(session.id);
-
-      // Check for socket-based status updates first
-      if (activeSession?.activityStatus) {
-        return {
-          ...session,
-          activityStatus: activeSession.activityStatus,
-        };
-      }
-
-      return session;
-    });
+    return this.sessionManager.listSessions();
   }
 
   /**
@@ -1859,7 +1811,7 @@ export class PtyManager extends EventEmitter {
     // Clean up resize tracking
     this.sessionResizeSources.delete(session.id);
 
-    // Clean up title update interval for dynamic mode
+    // Clean up title update interval for static/dynamic mode
     if (session.titleUpdateInterval) {
       clearInterval(session.titleUpdateInterval);
       session.titleUpdateInterval = undefined;

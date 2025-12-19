@@ -144,6 +144,10 @@ async function build() {
     }
   }
 
+  // Build zig forwarder
+  console.log('Building zig forwarder...');
+  execSync('node scripts/build-fwd-zig.js', { stdio: 'inherit' });
+
   console.log('Build completed successfully!');
 }
 

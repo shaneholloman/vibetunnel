@@ -380,12 +380,8 @@ describe('Events Router', () => {
       mockSessionMonitor.emit('notification', { type: 'bell', sessionId: 'test-123' });
 
       // Both clients should receive the event
-      expect(client1Response.write).toHaveBeenCalledWith(
-        expect.stringContaining('event: bell')
-      );
-      expect(client2Response.write).toHaveBeenCalledWith(
-        expect.stringContaining('event: bell')
-      );
+      expect(client1Response.write).toHaveBeenCalledWith(expect.stringContaining('event: bell'));
+      expect(client2Response.write).toHaveBeenCalledWith(expect.stringContaining('event: bell'));
     });
   });
 });

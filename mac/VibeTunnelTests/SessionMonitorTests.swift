@@ -40,7 +40,6 @@ final class SessionMonitorTests {
             gitMainRepoPath: nil,
             lastModified: "",
             active: nil,
-            activityStatus: nil,
             source: nil,
             remoteId: nil,
             remoteName: nil,
@@ -68,7 +67,6 @@ final class SessionMonitorTests {
             gitMainRepoPath: nil,
             lastModified: "",
             active: nil,
-            activityStatus: nil,
             source: nil,
             remoteId: nil,
             remoteName: nil,
@@ -96,13 +94,6 @@ final class SessionMonitorTests {
             "pid": 12345,
             "initialCols": 80,
             "initialRows": 24,
-            "activityStatus": {
-                "isActive": true,
-                "specificStatus": {
-                    "app": "claude",
-                    "status": "active"
-                }
-            },
             "source": "local"
         }
         """
@@ -121,9 +112,6 @@ final class SessionMonitorTests {
         #expect(session.pid == 12345)
         #expect(session.initialCols == 80)
         #expect(session.initialRows == 24)
-        #expect(session.activityStatus?.isActive == true)
-        #expect(session.activityStatus?.specificStatus?.app == "claude")
-        #expect(session.activityStatus?.specificStatus?.status == "active")
         #expect(session.source == "local")
         #expect(session.isRunning == true)
     }
@@ -154,7 +142,6 @@ final class SessionMonitorTests {
         #expect(session.pid == nil)
         #expect(session.initialCols == nil)
         #expect(session.initialRows == nil)
-        #expect(session.activityStatus == nil)
         #expect(session.source == nil)
         #expect(session.isRunning == false)
     }
@@ -174,14 +161,7 @@ final class SessionMonitorTests {
             "lastModified": "2025-01-01T12:15:00.000Z",
             "pid": 54321,
             "initialCols": 120,
-            "initialRows": 40,
-            "activityStatus": {
-                "isActive": true,
-                "specificStatus": {
-                    "app": "claude",
-                    "status": "thinking"
-                }
-            }
+            "initialRows": 40
         }
         """
 
@@ -463,14 +443,7 @@ final class SessionMonitorTests {
                 "lastModified": "2025-01-01T10:45:32.456Z",
                 "pid": 45678,
                 "initialCols": 120,
-                "initialRows": 40,
-                "activityStatus": {
-                    "isActive": true,
-                    "specificStatus": {
-                        "app": "claude",
-                        "status": "editing"
-                    }
-                }
+                "initialRows": 40
             },
             {
                 "id": "20250101-090000-def456",
@@ -509,7 +482,6 @@ final class SessionMonitorTests {
         #expect(claudeSession.command[1] == "session")
         #expect(claudeSession.command[2] == "--continue")
         #expect(claudeSession.isRunning == true)
-        #expect(claudeSession.activityStatus?.specificStatus?.app == "claude")
 
         // Verify dev server session
         let devSession = sessions[1]

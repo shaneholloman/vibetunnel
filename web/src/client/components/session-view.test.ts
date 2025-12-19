@@ -216,11 +216,6 @@ describe('SessionView', () => {
 
       // Mock fetch responses
       fetchMock.mockResponse('/api/sessions/test-session-123', mockSession);
-      fetchMock.mockResponse('/api/sessions/test-session-123/activity', {
-        isActive: false,
-        timestamp: new Date().toISOString(),
-      });
-
       element.session = mockSession;
       await element.updateComplete;
 

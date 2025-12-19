@@ -5,7 +5,7 @@ import os.log
 /// Server session information returned by the API.
 ///
 /// Represents the current state of a terminal session running on the VibeTunnel server,
-/// including its command, directory, process status, and activity information.
+/// including its command, directory, and process status.
 struct ServerSessionInfo: Codable {
     let id: String
     let name: String
@@ -30,7 +30,6 @@ struct ServerSessionInfo: Codable {
     // Additional fields from Session (not SessionInfo)
     let lastModified: String
     let active: Bool?
-    let activityStatus: ActivityStatus?
     let source: String?
     let remoteId: String?
     let remoteName: String?
@@ -40,24 +39,6 @@ struct ServerSessionInfo: Codable {
     var isRunning: Bool {
         self.status == "running"
     }
-}
-
-/// Activity status for a session.
-///
-/// Tracks whether a session is actively being used and provides
-/// application-specific status information when available.
-struct ActivityStatus: Codable {
-    let isActive: Bool
-    let specificStatus: SpecificStatus?
-}
-
-/// App-specific status information.
-///
-/// Provides detailed status information for specific applications running
-/// within a terminal session, such as Claude's current working state.
-struct SpecificStatus: Codable {
-    let app: String
-    let status: String
 }
 
 /// Lightweight session monitor that fetches terminal sessions on-demand.

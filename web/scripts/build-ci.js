@@ -49,4 +49,8 @@ if (fs.existsSync(path.join(__dirname, '../dist'))) {
 console.log('Building native executable for CI...');
 execSync('node build-native.js', { stdio: 'inherit' });
 
+// Build zig forwarder
+console.log('Building zig forwarder...');
+execSync('node scripts/build-fwd-zig.js', { stdio: 'inherit' });
+
 console.log('CI build completed successfully!');

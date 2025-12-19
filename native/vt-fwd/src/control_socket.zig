@@ -13,7 +13,7 @@ pub const MessageType = enum(u8) {
     control_cmd = 0x02,
     status_update = 0x03,
     heartbeat = 0x04,
-    error = 0x05,
+    @"error" = 0x05,
 };
 
 pub const Handler = struct {
@@ -76,7 +76,7 @@ pub const Server = struct {
 
     pub fn run(self: *Server) void {
         while (self.running.load(.acquire)) {
-            const client_fd = posix.accept(self.fd, null, null) catch |err| {
+            const client_fd = posix.accept(self.fd, null, null, 0) catch |err| {
                 if (err == error.BadFileDescriptor) return;
                 continue;
             };
@@ -91,14 +91,14 @@ pub const Server = struct {
     }
 
     fn handleClient(self: *Server, fd: posix.fd_t) void {
-        var buffer = std.ArrayList(u8).init(self.allocator);
-        defer buffer.deinit();
+        var buffer = std.ArrayList(u8).empty;
+        defer buffer.deinit(self.allocator);
         var temp: [4096]u8 = undefined;
 
         while (self.running.load(.acquire)) {
             const read_len = posix.read(fd, &temp) catch break;
             if (read_len == 0) break;
-            _ = buffer.appendSlice(temp[0..read_len]) catch break;
+            _ = buffer.appendSlice(self.allocator, temp[0..read_len]) catch break;
 
             while (buffer.items.len >= 5) {
                 const msg_type: MessageType = @enumFromInt(buffer.items[0]);
@@ -106,7 +106,7 @@ pub const Server = struct {
                 if (buffer.items.len < 5 + payload_len) break;
                 const payload = buffer.items[5 .. 5 + payload_len];
                 self.dispatchMessage(fd, msg_type, payload);
-                buffer.replaceRange(0, 5 + payload_len, &[_]u8{}) catch break;
+                buffer.replaceRange(self.allocator, 0, 5 + payload_len, &[_]u8{}) catch break;
             }
         }
     }
@@ -126,7 +126,7 @@ pub const Server = struct {
 
         if (parsed.value != .object) return;
         const cmd_value = parsed.value.object.get("cmd") orelse return;
-        if (cmd_value.* != .string) return;
+        if (cmd_value != .string) return;
         const cmd = cmd_value.string;
 
         if (std.mem.eql(u8, cmd, "resize")) {
@@ -149,24 +149,24 @@ pub const Server = struct {
 
         if (std.mem.eql(u8, cmd, "update-title")) {
             const title_value = parsed.value.object.get("title") orelse return;
-            if (title_value.* != .string) return;
+            if (title_value != .string) return;
             self.handler.on_update_title(self.handler.context, title_value.string);
             return;
         }
     }
 
-    fn parseNumber(value_opt: ?*std.json.Value) ?i64 {
-        const value_ptr = value_opt orelse return null;
-        switch (value_ptr.*) {
+    fn parseNumber(value_opt: ?std.json.Value) ?i64 {
+        const value = value_opt orelse return null;
+        switch (value) {
             .integer => |v| return v,
             .float => |v| return @intFromFloat(v),
             else => return null,
         }
     }
 
-    fn parseSignal(value_opt: ?*std.json.Value) ?i32 {
-        const value_ptr = value_opt orelse return null;
-        switch (value_ptr.*) {
+    fn parseSignal(value_opt: ?std.json.Value) ?i32 {
+        const value = value_opt orelse return null;
+        switch (value) {
             .integer => |v| return @intCast(v),
             .float => |v| return @intFromFloat(v),
             .string => |s| return signalFromName(s),
@@ -175,10 +175,10 @@ pub const Server = struct {
     }
 
     fn signalFromName(name: []const u8) ?i32 {
-        if (std.ascii.eqlIgnoreCase(name, "SIGTERM")) return @intFromEnum(posix.SIG.TERM);
-        if (std.ascii.eqlIgnoreCase(name, "SIGKILL")) return @intFromEnum(posix.SIG.KILL);
-        if (std.ascii.eqlIgnoreCase(name, "SIGINT")) return @intFromEnum(posix.SIG.INT);
-        if (std.ascii.eqlIgnoreCase(name, "SIGHUP")) return @intFromEnum(posix.SIG.HUP);
+        if (std.ascii.eqlIgnoreCase(name, "SIGTERM")) return @as(i32, @intCast(posix.SIG.TERM));
+        if (std.ascii.eqlIgnoreCase(name, "SIGKILL")) return @as(i32, @intCast(posix.SIG.KILL));
+        if (std.ascii.eqlIgnoreCase(name, "SIGINT")) return @as(i32, @intCast(posix.SIG.INT));
+        if (std.ascii.eqlIgnoreCase(name, "SIGHUP")) return @as(i32, @intCast(posix.SIG.HUP));
         return null;
     }
 

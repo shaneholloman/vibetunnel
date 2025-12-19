@@ -80,9 +80,13 @@ fn runGit(
     child.stderr_behavior = .Ignore;
 
     if (child.spawn()) |_| {} else |_| return null;
-    defer child.deinit();
 
-    const stdout = child.stdout.?.readToEndAlloc(allocator, 8192) catch return null;
+    const stdout = if (child.stdout) |*handle| blk: {
+        const data = handle.readToEndAlloc(allocator, 8192) catch return null;
+        handle.close();
+        child.stdout = null;
+        break :blk data;
+    } else return null;
     const term = child.wait() catch {
         allocator.free(stdout);
         return null;
@@ -117,7 +121,6 @@ fn runGitStatus(
     child.stderr_behavior = .Ignore;
 
     if (child.spawn()) |_| {} else |_| return null;
-    defer child.deinit();
 
     const term = child.wait() catch return null;
     switch (term) {

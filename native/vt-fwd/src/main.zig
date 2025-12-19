@@ -15,6 +15,7 @@ const c = @cImport({
     @cInclude("termios.h");
     @cInclude("signal.h");
     @cInclude("sys/stat.h");
+    @cInclude("sys/ioctl.h");
 });
 
 const TitleMode = enum {
@@ -28,9 +29,13 @@ const Options = struct {
     session_id: ?[]const u8 = null,
     title_mode: TitleMode = .none,
     update_title: ?[]const u8 = null,
-    verbosity: logger_mod.Level = .error,
+    verbosity: logger_mod.Level = logger_mod.Level.@"error",
     log_file: ?[]const u8 = null,
-    command: []const []const u8 = &.{},
+};
+
+const ParsedArgs = struct {
+    options: Options,
+    command: []const []const u8,
 };
 
 const SessionContext = struct {
@@ -80,23 +85,18 @@ const EnvDefaults = struct {
 
     fn load(self: *EnvDefaults) void {
         if (std.posix.getenv("VIBETUNNEL_TITLE_MODE")) |val| {
-            if (parseTitleMode(std.mem.span(val))) |mode| {
+            if (parseTitleMode(std.mem.sliceTo(val, 0))) |mode| {
                 self.title_mode = mode;
             }
         }
         if (std.posix.getenv("VIBETUNNEL_LOG_LEVEL")) |val| {
-            if (logger_mod.parseLevel(std.mem.span(val))) |level| {
+            if (logger_mod.parseLevel(std.mem.sliceTo(val, 0))) |level| {
                 self.verbosity = level;
             }
         }
         if (std.posix.getenv("VIBETUNNEL_DEBUG")) |val| {
-            if (isTruthy(std.mem.span(val))) {
+            if (isTruthy(std.mem.sliceTo(val, 0))) {
                 self.verbosity = .debug;
-            }
-        }
-        if (std.posix.getenv("VIBETUNNEL_CLAUDE_DYNAMIC_TITLE")) |val| {
-            if (isTruthy(std.mem.span(val))) {
-                self.title_mode = .dynamic;
             }
         }
     }
@@ -127,7 +127,7 @@ var g_running = std.atomic.Value(bool).init(true);
 var g_signal = std.atomic.Value(i32).init(0);
 var g_child_pid = std.atomic.Value(i32).init(-1);
 
-fn handleSignal(sig: c_int) callconv(.C) void {
+fn handleSignal(sig: c_int) callconv(.c) void {
     g_running.store(false, .release);
     g_signal.store(@intCast(sig), .release);
 }
@@ -137,15 +137,23 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var args = try std.process.argsAlloc(allocator);
+    const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
+
+    var args_plain = try allocator.alloc([]const u8, args.len);
+    defer allocator.free(args_plain);
+    for (args, 0..) |arg, idx| {
+        args_plain[idx] = std.mem.sliceTo(arg, 0);
+    }
 
     var defaults = EnvDefaults{};
     defaults.load();
 
-    var options = try parseArgs(args[1..], defaults);
+    const parsed = try parseArgs(args_plain[1..], defaults);
+    const options = parsed.options;
+    const command = parsed.command;
 
-    if (args.len <= 1 || (options.command.len == 0 and options.update_title == null)) {
+    if (args_plain.len <= 1 or (command.len == 0 and options.update_title == null)) {
         showUsage();
         return;
     }
@@ -157,12 +165,12 @@ pub fn main() !void {
 
     if (options.update_title) |title| {
         if (options.session_id == null) {
-            logger.error("--update-title requires --session-id", .{});
+            logger.logError("--update-title requires --session-id", .{});
             return error.InvalidArguments;
         }
         const session_id = options.session_id.?;
         if (!isValidSessionId(session_id)) {
-            logger.error("invalid session id: {s}", .{session_id});
+            logger.logError("invalid session id: {s}", .{session_id});
             return error.InvalidArguments;
         }
         const control_path = try controlPath(allocator, home);
@@ -174,15 +182,14 @@ pub fn main() !void {
         defer arena.deinit();
         const sanitized = try title_mod.sanitizeTitle(arena.allocator(), title);
         session_mod.updateSessionName(arena.allocator(), session_json_path, sanitized) catch |err| {
-            logger.error("failed to update session title: {s}", .{@errorName(err)});
+            logger.logError("failed to update session title: {s}", .{@errorName(err)});
             return err;
         };
         return;
     }
 
-    const command = options.command;
     if (command.len == 0) {
-        logger.error("no command specified", .{});
+        logger.logError("no command specified", .{});
         showUsage();
         return error.InvalidArguments;
     }
@@ -197,7 +204,7 @@ pub fn main() !void {
     const control_path = try controlPath(allocator, home);
     const session_id = options.session_id orelse try generateSessionId(allocator);
     if (!isValidSessionId(session_id)) {
-        logger.error("invalid session id: {s}", .{session_id});
+        logger.logError("invalid session id: {s}", .{session_id});
         return error.InvalidArguments;
     }
 
@@ -255,34 +262,35 @@ pub fn main() !void {
         session_name,
     );
 
-    var winsize = pty_mod.winsize{ .ws_col = initial_cols, .ws_row = initial_rows, .ws_xpixel = 0, .ws_ypixel = 0 };
+    const winsize = pty_mod.winsize{ .ws_col = initial_cols, .ws_row = initial_rows, .ws_xpixel = 0, .ws_ypixel = 0 };
     var pty = try pty_mod.Pty.open(winsize);
 
     var exec_env = try buildExecEnv(allocator, command, session_id);
     const pid = posix.fork() catch |err| {
-        logger.error("failed to fork: {s}", .{@errorName(err)});
+        logger.logError("failed to fork: {s}", .{@errorName(err)});
         exec_env.deinit();
         return err;
     };
 
     if (pid == 0) {
         _ = posix.close(pty.master);
-        _ = posix.setsid();
+        _ = posix.setsid() catch {};
         _ = c.ioctl(pty.slave, pty_mod.TIOCSCTTY, @as(c_ulong, 0));
-        _ = posix.dup2(pty.slave, 0);
-        _ = posix.dup2(pty.slave, 1);
-        _ = posix.dup2(pty.slave, 2);
+        _ = posix.dup2(pty.slave, 0) catch {};
+        _ = posix.dup2(pty.slave, 1) catch {};
+        _ = posix.dup2(pty.slave, 2) catch {};
         _ = posix.close(pty.slave);
 
-        _ = posix.chdir(cwd);
+        _ = posix.chdir(cwd) catch {};
 
-        _ = posix.execvpeZ(exec_env.argv[0].?, exec_env.argv.ptr, exec_env.envp.ptr);
+        _ = posix.execvpeZ(exec_env.argv[0].?, exec_env.argv.ptr, exec_env.envp.ptr) catch {};
         posix.exit(127);
     }
 
     exec_env.deinit();
 
     _ = posix.close(pty.slave);
+    pty.slave = -1;
 
     g_running.store(true, .release);
     g_signal.store(0, .release);
@@ -332,20 +340,21 @@ pub fn main() !void {
     _ = try std.Thread.spawn(.{}, resizeWatcherThread, .{&ctx});
 
     var raw_mode: ?RawMode = null;
-    const stdin_fd = std.io.getStdIn().handle;
+    const stdin_fd = std.fs.File.stdin().handle;
     if (posix.isatty(stdin_fd)) {
         raw_mode = RawMode.enable(stdin_fd) catch null;
     }
 
     mainLoop(&ctx, stdin_fd) catch |err| {
-        logger.error("main loop error: {s}", .{@errorName(err)});
+        logger.logError("main loop error: {s}", .{@errorName(err)});
     };
 
     g_running.store(false, .release);
 
     const signaled = g_signal.load(.acquire);
     if (signaled != 0) {
-        _ = posix.kill(-pid, @enumFromInt(@intCast(signaled))) catch {};
+        const sig_u8: u8 = @as(u8, @intCast(signaled));
+        _ = posix.kill(-pid, sig_u8) catch {};
     }
 
     const wait = posix.waitpid(pid, 0);
@@ -366,7 +375,7 @@ pub fn main() !void {
     std.process.exit(@intCast(exit_info.exit_code));
 }
 
-fn parseArgs(args: []const []const u8, defaults: EnvDefaults) !Options {
+fn parseArgs(args: []const []const u8, defaults: EnvDefaults) !ParsedArgs {
     var options = Options{};
     if (defaults.title_mode) |mode| options.title_mode = mode;
     if (defaults.verbosity) |level| options.verbosity = level;
@@ -435,16 +444,16 @@ fn parseArgs(args: []const []const u8, defaults: EnvDefaults) !Options {
         break;
     }
 
-    options.command = args[i..];
-    if (options.command.len > 0 and std.mem.eql(u8, options.command[0], "--")) {
-        options.command = options.command[1..];
+    var command = args[i..];
+    if (command.len > 0 and std.mem.eql(u8, command[0], "--")) {
+        command = command[1..];
     }
 
-    return options;
+    return .{ .options = options, .command = command };
 }
 
 fn showUsage() void {
-    const out = std.io.getStdOut().writer();
+    const out = std.fs.File.stdout().deprecatedWriter();
     _ = out.writeAll("VibeTunnel Forward (vibetunnel-fwd)\n\n") catch {};
     _ = out.writeAll("Usage:\n  vibetunnel-fwd [--session-id <id>] [--title-mode <mode>] [--verbosity <level>] <command> [args...]\n\n") catch {};
     _ = out.writeAll("Options:\n  --session-id <id>       Use a pre-generated session ID\n  --title-mode <mode>     none, filter, static, dynamic\n  --update-title <title>  Update session title and exit (requires --session-id)\n  --verbosity <level>     silent, error, warn, info, verbose, debug\n  --log-file <path>       Override default log file path\n  -q/-v/-vv/-vvv          Quick verbosity\n") catch {};
@@ -487,7 +496,7 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
 }
 
 fn getHome() []const u8 {
-    if (std.posix.getenv("HOME")) |val| return std.mem.span(val);
+    if (std.posix.getenv("HOME")) |val| return std.mem.sliceTo(val, 0);
     return "";
 }
 
@@ -515,11 +524,11 @@ fn isValidSessionId(session_id: []const u8) bool {
 }
 
 fn determineInitialSize() !SizeInfo {
-    const stdout_fd = std.io.getStdOut().handle;
+    const stdout_fd = std.fs.File.stdout().handle;
     const is_external = std.posix.getenv("VIBETUNNEL_SESSION_ID") != null;
 
     if (is_external) {
-        std.time.sleep(100 * std.time.ns_per_ms);
+        std.Thread.sleep(100 * std.time.ns_per_ms);
         if (posix.isatty(stdout_fd)) {
             const ws = pty_mod.getWinsizeFromFd(stdout_fd) catch return .{ .cols = 80, .rows = 24, .has_size = false };
             return .{ .cols = ws.ws_col, .rows = ws.ws_row, .has_size = true };
@@ -538,7 +547,7 @@ fn determineInitialSize() !SizeInfo {
 fn ensureStdinPipe(path: []const u8) void {
     if (std.fs.cwd().statFile(path)) |_| return else |_| {}
 
-    const path_z = std.mem.dupeZ(std.heap.c_allocator, u8, path) catch null;
+    const path_z = std.heap.c_allocator.dupeZ(u8, path) catch null;
     defer if (path_z) |p| std.heap.c_allocator.free(p);
 
     if (path_z) |p| {
@@ -623,7 +632,7 @@ fn handleSocketResize(context: *anyopaque, cols: u16, rows: u16) void {
 
 fn handleSocketResetSize(context: *anyopaque) void {
     const ctx: *SessionContext = @ptrCast(@alignCast(context));
-    const stdout_fd = std.io.getStdOut().handle;
+    const stdout_fd = std.fs.File.stdout().handle;
     if (!posix.isatty(stdout_fd)) return;
     if (pty_mod.getWinsizeFromFd(stdout_fd)) |ws| {
         resizePty(ctx, ws.ws_col, ws.ws_row);
@@ -634,8 +643,9 @@ fn handleSocketKill(context: *anyopaque, signal: ?i32) void {
     const ctx: *SessionContext = @ptrCast(@alignCast(context));
     const pid = g_child_pid.load(.acquire);
     if (pid <= 0) return;
-    const sig = signal orelse @intFromEnum(posix.SIG.TERM);
-    _ = posix.kill(-pid, @enumFromInt(@intCast(sig))) catch {};
+    const sig = signal orelse @as(i32, @intCast(posix.SIG.TERM));
+    const sig_u8: u8 = @as(u8, @intCast(sig));
+    _ = posix.kill(-pid, sig_u8) catch {};
     ctx.running.store(false, .release);
 }
 
@@ -672,7 +682,7 @@ fn writeToPty(ctx: *SessionContext, data: []const u8, record_input: bool) void {
 
 fn resizePty(ctx: *SessionContext, cols: u16, rows: u16) void {
     if (cols == 0 or rows == 0) return;
-    var ws = pty_mod.winsize{ .ws_col = cols, .ws_row = rows, .ws_xpixel = 0, .ws_ypixel = 0 };
+    const ws = pty_mod.winsize{ .ws_col = cols, .ws_row = rows, .ws_xpixel = 0, .ws_ypixel = 0 };
     ctx.pty.setSize(ws) catch {};
     ctx.asciinema.writeResize(cols, rows) catch {};
     ctx.last_cols = cols;
@@ -689,7 +699,7 @@ fn updateLocalTitle(ctx: *SessionContext, name: []const u8) !void {
 
     ctx.stdout_mutex.lock();
     defer ctx.stdout_mutex.unlock();
-    _ = std.io.getStdOut().writeAll(seq) catch {};
+    _ = std.fs.File.stdout().writeAll(seq) catch {};
 }
 
 fn sessionWatcherThread(ctx: *SessionContext) void {
@@ -699,7 +709,7 @@ fn sessionWatcherThread(ctx: *SessionContext) void {
     } else |_| {}
 
     while (ctx.running.load(.acquire)) {
-        std.time.sleep(500 * std.time.ns_per_ms);
+        std.Thread.sleep(500 * std.time.ns_per_ms);
         const stat = std.fs.cwd().statFile(ctx.session_json_path) catch continue;
         if (stat.mtime == last_mtime) continue;
         last_mtime = stat.mtime;
@@ -722,13 +732,13 @@ fn sessionWatcherThread(ctx: *SessionContext) void {
 }
 
 fn resizeWatcherThread(ctx: *SessionContext) void {
-    const stdout_fd = std.io.getStdOut().handle;
+    const stdout_fd = std.fs.File.stdout().handle;
     if (!posix.isatty(stdout_fd)) return;
     var last_cols = ctx.last_cols;
     var last_rows = ctx.last_rows;
 
     while (ctx.running.load(.acquire)) {
-        std.time.sleep(200 * std.time.ns_per_ms);
+        std.Thread.sleep(200 * std.time.ns_per_ms);
         const ws = pty_mod.getWinsizeFromFd(stdout_fd) catch continue;
         if (ws.ws_col == last_cols and ws.ws_row == last_rows) continue;
         last_cols = ws.ws_col;
@@ -745,8 +755,8 @@ fn mainLoop(ctx: *SessionContext, stdin_fd: posix.fd_t) !void {
     };
 
     var buffer: [8192]u8 = undefined;
-    var filtered = std.ArrayList(u8).init(ctx.allocator);
-    defer filtered.deinit();
+    var filtered = std.ArrayList(u8).empty;
+    defer filtered.deinit(ctx.allocator);
 
     while (ctx.running.load(.acquire)) {
         if (!stdin_active) {
@@ -754,10 +764,7 @@ fn mainLoop(ctx: *SessionContext, stdin_fd: posix.fd_t) !void {
             poll_fds[1].events = 0;
         }
 
-        const ready = posix.poll(&poll_fds, 200) catch |err| switch (err) {
-            error.Interrupted => continue,
-            else => return err,
-        };
+        const ready = try posix.poll(&poll_fds, 200);
 
         if (ready == 0) continue;
 
@@ -766,24 +773,21 @@ fn mainLoop(ctx: *SessionContext, stdin_fd: posix.fd_t) !void {
         }
 
         if (poll_fds[0].revents & posix.POLL.IN != 0) {
-            const read_len = posix.read(ctx.pty.master, &buffer) catch |err| switch (err) {
-                error.Interrupted => 0,
-                else => return err,
-            };
+            const read_len = try posix.read(ctx.pty.master, &buffer);
             if (read_len == 0) break;
 
             const chunk = buffer[0..read_len];
             var output_slice = chunk;
             if (ctx.title_mode != .none) {
                 filtered.clearRetainingCapacity();
-                ctx.title_filter.filter(chunk, &filtered) catch {};
+                ctx.title_filter.filter(ctx.allocator, chunk, &filtered) catch {};
                 output_slice = filtered.items;
             }
 
             if (output_slice.len > 0) {
                 ctx.asciinema.writeOutput(output_slice) catch {};
                 ctx.stdout_mutex.lock();
-                _ = std.io.getStdOut().writeAll(output_slice) catch {};
+                _ = std.fs.File.stdout().writeAll(output_slice) catch {};
                 ctx.stdout_mutex.unlock();
             }
         }
@@ -791,10 +795,7 @@ fn mainLoop(ctx: *SessionContext, stdin_fd: posix.fd_t) !void {
         if (stdin_active and poll_fds[1].revents & (posix.POLL.HUP | posix.POLL.ERR | posix.POLL.NVAL) != 0) {
             stdin_active = false;
         } else if (stdin_active and poll_fds[1].revents & posix.POLL.IN != 0) {
-            const read_len = posix.read(stdin_fd, &buffer) catch |err| switch (err) {
-                error.Interrupted => 0,
-                else => return err,
-            };
+            const read_len = try posix.read(stdin_fd, &buffer);
             if (read_len == 0) {
                 stdin_active = false;
             } else {

@@ -489,7 +489,6 @@ exec /usr/local/bin/vibetunnel fwd "$@"
 - Shell detection and setup
 - Working directory preservation
 - Environment variable handling
-- Special Claude shortcuts (`--claude`, `--claude-yolo`)
 
 **Session Creation Flow**:
 1. Parse command-line arguments
@@ -711,7 +710,7 @@ cleanupOnStartup: Bool = true
 **Requirements**:
 - Xcode 16.0+
 - macOS 14.0+ SDK
-- Node.js 20.0+
+- Node.js 22.12+
 - Bun runtime
 
 **Build Process**:

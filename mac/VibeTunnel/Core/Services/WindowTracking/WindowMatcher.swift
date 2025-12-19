@@ -213,21 +213,6 @@ final class WindowMatcher {
             return matchingWindow
         }
 
-        // Try to match by activity status (for sessions with specific activities)
-        if let activity = sessionInfo.activityStatus?.specificStatus?.status, !activity.isEmpty {
-            self.logger.debug("Trying to match by activity: \(activity)")
-
-            if let matchingWindow = allWindows.first(where: { window in
-                if let title = window.title {
-                    return title.contains(activity)
-                }
-                return false
-            }) {
-                self.logger.info("Found window by activity match: \(activity) for session \(sessionID)")
-                return matchingWindow
-            }
-        }
-
         self.logger.warning("Could not find window for session \(sessionID) after all attempts")
         self.logger.debug("Available windows: \(allWindows.count)")
         for (index, window) in allWindows.enumerated() {
@@ -246,14 +231,12 @@ final class WindowMatcher {
         let workingDir = sessionInfo.workingDir
         let dirName = (workingDir as NSString).lastPathComponent
         let sessionID = sessionInfo.id
-        let activityStatus = sessionInfo.activityStatus?.specificStatus?.status
         let sessionName = sessionInfo.name
 
         self.logger.debug("Looking for tab matching session \(sessionID) in \(tabs.count) tabs")
         self.logger.debug("  Working dir: \(workingDir)")
         self.logger.debug("  Dir name: \(dirName)")
         self.logger.debug("  Session name: \(sessionName)")
-        self.logger.debug("  Activity: \(activityStatus ?? "none")")
 
         for (index, tab) in tabs.enumerated() {
             if let title = tab.title {
@@ -268,12 +251,6 @@ final class WindowMatcher {
                 // Check for session name match
                 if !sessionName.isEmpty, title.contains(sessionName) {
                     self.logger.info("Found tab by session name match: \(sessionName) at index \(index)")
-                    return tab
-                }
-
-                // Check for activity status match
-                if let activity = activityStatus, !activity.isEmpty, title.contains(activity) {
-                    self.logger.info("Found tab by activity match: \(activity) at index \(index)")
                     return tab
                 }
 

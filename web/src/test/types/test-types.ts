@@ -15,12 +15,6 @@ export interface SessionData {
   rows?: number;
 }
 
-export interface ActivityStatus {
-  isActive: boolean;
-  timestamp: string;
-  session: SessionData;
-}
-
 export interface BufferMessage {
   type: string;
   sessionId?: string;

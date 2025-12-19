@@ -33,7 +33,6 @@ import { createTestNotificationRouter } from './routes/test-notification.js';
 import { createTmuxRoutes } from './routes/tmux.js';
 import { WebSocketInputHandler } from './routes/websocket-input.js';
 import { createWorktreeRoutes } from './routes/worktrees.js';
-import { ActivityMonitor } from './services/activity-monitor.js';
 import { AuthService } from './services/auth-service.js';
 import { BufferAggregator } from './services/buffer-aggregator.js';
 import { ConfigService } from './services/config-service.js';
@@ -363,7 +362,6 @@ interface AppInstance {
   hqClient: HQClient | null;
   controlDirWatcher: ControlDirWatcher | null;
   bufferAggregator: BufferAggregator | null;
-  activityMonitor: ActivityMonitor;
   pushNotificationService: PushNotificationService | null;
 }
 
@@ -486,10 +484,6 @@ export async function createApp(): Promise<AppInstance> {
   // Set the session monitor on PTY manager for data tracking
   ptyManager.setSessionMonitor(sessionMonitor);
   logger.debug('Initialized session monitor');
-
-  // Initialize activity monitor
-  const activityMonitor = new ActivityMonitor(CONTROL_DIR);
-  logger.debug('Initialized activity monitor');
 
   // Initialize configuration service
   const configService = new ConfigService();
@@ -663,7 +657,6 @@ export async function createApp(): Promise<AppInstance> {
   const websocketInputHandler = new WebSocketInputHandler({
     ptyManager,
     terminalManager,
-    activityMonitor,
     remoteRegistry,
     authService,
     isHQMode: config.isHQMode,
@@ -910,7 +903,6 @@ export async function createApp(): Promise<AppInstance> {
         });
     });
     logger.debug('Connected command finished notifications to PTY manager');
-
   }
 
   // Apply auth middleware to all API routes (including auth routes for Tailscale header detection)
@@ -938,7 +930,6 @@ export async function createApp(): Promise<AppInstance> {
       streamWatcher,
       remoteRegistry,
       isHQMode: config.isHQMode,
-      activityMonitor,
     })
   );
   logger.debug('Mounted session routes');
@@ -1404,10 +1395,6 @@ export async function createApp(): Promise<AppInstance> {
       controlDirWatcher.start();
       logger.debug('Started control directory watcher');
 
-      // Start activity monitor
-      activityMonitor.start();
-      logger.debug('Started activity monitor');
-
       // Start mDNS advertisement if enabled
       if (config.enableMDNS) {
         mdnsService.startAdvertising(actualPort).catch((err) => {
@@ -1433,7 +1420,6 @@ export async function createApp(): Promise<AppInstance> {
     hqClient,
     controlDirWatcher,
     bufferAggregator,
-    activityMonitor,
     pushNotificationService,
   };
 }
@@ -1468,7 +1454,6 @@ export async function startVibeTunnelServer() {
     remoteRegistry,
     hqClient,
     controlDirWatcher,
-    activityMonitor,
     config,
     configService,
   } = appInstance;
@@ -1525,9 +1510,6 @@ export async function startVibeTunnelServer() {
       }
       logger.debug('Cleared cleanup intervals');
 
-      // Stop activity monitor
-      activityMonitor.stop();
-      logger.debug('Stopped activity monitor');
       // Stop configuration service watcher
       configService.stopWatching();
       logger.debug('Stopped configuration service watcher');

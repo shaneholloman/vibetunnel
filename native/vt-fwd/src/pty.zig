@@ -75,8 +75,14 @@ pub const Pty = struct {
     }
 
     pub fn deinit(self: *Pty) void {
-        _ = posix.close(self.master);
-        _ = posix.close(self.slave);
+        if (self.master >= 0) {
+            _ = posix.close(self.master);
+            self.master = -1;
+        }
+        if (self.slave >= 0) {
+            _ = posix.close(self.slave);
+            self.slave = -1;
+        }
         self.* = undefined;
     }
 
@@ -120,8 +126,8 @@ pub const Pty = struct {
             else => return error.SetControllingTerminalFailed,
         }
 
-        posix.close(self.slave);
-        posix.close(self.master);
+        _ = posix.close(self.slave);
+        _ = posix.close(self.master);
     }
 };
 

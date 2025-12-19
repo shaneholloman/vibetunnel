@@ -2,8 +2,11 @@ const std = @import("std");
 
 pub const AsciinemaWriter = struct {
     file: std.fs.File,
+    writer: std.fs.File.Writer,
+    writer_buf: [4096]u8 = undefined,
     timer: std.time.Timer,
     mutex: std.Thread.Mutex = .{},
+    allocator: std.mem.Allocator,
     utf8_buffer: std.ArrayList(u8),
 
     pub fn init(
@@ -21,29 +24,33 @@ pub const AsciinemaWriter = struct {
         const file = try std.fs.cwd().createFile(path, .{ .truncate = true, .read = false, .mode = 0o644 });
         var writer = AsciinemaWriter{
             .file = file,
+            .writer = undefined,
             .timer = try std.time.Timer.start(),
-            .utf8_buffer = std.ArrayList(u8).init(allocator),
+            .allocator = allocator,
+            .utf8_buffer = std.ArrayList(u8).empty,
         };
+        writer.writer = file.writer(&writer.writer_buf);
         try writer.writeHeader(width, height, command, title);
         return writer;
     }
 
     pub fn deinit(self: *AsciinemaWriter) void {
-        self.utf8_buffer.deinit();
+        self.utf8_buffer.deinit(self.allocator);
+        _ = self.writer.end() catch {};
         self.file.close();
     }
 
     pub fn writeOutput(self: *AsciinemaWriter, data: []const u8) !void {
-        var combined = std.ArrayList(u8).init(self.utf8_buffer.allocator);
-        defer combined.deinit();
-        try combined.appendSlice(self.utf8_buffer.items);
-        try combined.appendSlice(data);
+        var combined = std.ArrayList(u8).empty;
+        defer combined.deinit(self.allocator);
+        try combined.appendSlice(self.allocator, self.utf8_buffer.items);
+        try combined.appendSlice(self.allocator, data);
 
         const valid_len = validUtf8PrefixLen(combined.items);
         const valid = combined.items[0..valid_len];
         const remainder = combined.items[valid_len..];
         self.utf8_buffer.clearRetainingCapacity();
-        try self.utf8_buffer.appendSlice(remainder);
+        try self.utf8_buffer.appendSlice(self.allocator, remainder);
 
         if (valid.len == 0) return;
         try self.writeEvent('o', valid);
@@ -60,15 +67,16 @@ pub const AsciinemaWriter = struct {
     }
 
     pub fn writeExit(self: *AsciinemaWriter, exit_code: i32, session_id: []const u8) !void {
-        const writer = self.file.writer();
+        var file_writer = &self.writer;
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        try writer.writeAll("[\"exit\",");
-        try std.fmt.format(writer, "{}", .{exit_code});
-        try writer.writeAll(",");
-        try std.json.stringify(session_id, .{}, writer);
-        try writer.writeAll("]\n");
+        try file_writer.interface.writeAll("[\"exit\",");
+        try file_writer.interface.print("{}", .{exit_code});
+        try file_writer.interface.writeAll(",");
+        try std.json.Stringify.value(session_id, .{}, &file_writer.interface);
+        try file_writer.interface.writeAll("]\n");
+        try file_writer.interface.flush();
     }
 
     fn writeHeader(self: *AsciinemaWriter, width: u16, height: u16, command: []const u8, title: []const u8) !void {
@@ -80,28 +88,30 @@ pub const AsciinemaWriter = struct {
             .command = if (command.len > 0) command else null,
             .title = if (title.len > 0) title else null,
         };
-        const writer = self.file.writer();
+        var file_writer = &self.writer;
         self.mutex.lock();
         defer self.mutex.unlock();
-        try std.json.stringify(header, .{ .emit_null_optional_fields = false }, writer);
-        try writer.writeAll("\n");
+        try std.json.Stringify.value(header, .{ .emit_null_optional_fields = false }, &file_writer.interface);
+        try file_writer.interface.writeAll("\n");
+        try file_writer.interface.flush();
     }
 
     fn writeEvent(self: *AsciinemaWriter, event_type: u8, data: []const u8) !void {
-        const writer = self.file.writer();
+        var file_writer = &self.writer;
         const elapsed_ns = self.timer.read();
         const elapsed = @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0;
 
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        try writer.writeAll("[");
-        try std.fmt.format(writer, "{d:.6}", .{elapsed});
-        try writer.writeAll(",\"");
-        try writer.writeByte(event_type);
-        try writer.writeAll("\",");
-        try std.json.stringify(data, .{}, writer);
-        try writer.writeAll("]\n");
+        try file_writer.interface.writeAll("[");
+        try file_writer.interface.print("{d:.6}", .{elapsed});
+        try file_writer.interface.writeAll(",\"");
+        try file_writer.interface.writeByte(event_type);
+        try file_writer.interface.writeAll("\",");
+        try std.json.Stringify.value(data, .{}, &file_writer.interface);
+        try file_writer.interface.writeAll("]\n");
+        try file_writer.interface.flush();
     }
 };
 
