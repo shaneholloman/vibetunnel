@@ -72,8 +72,6 @@ HQ uses the same `/ws` v3 frames.
 ## Removed legacy transports
 - `/buffers` (v2 `0xBF` framing)
 - `/ws/input`
-- `/api/sessions/:id/stream` (SSE output stream)
 
 Still available:
-- `/api/sessions/:id/snapshot` (asciinema snapshot text; mainly for “exited session” rendering / export)
-- `/api/sessions/:id/buffer` (VT snapshot v1 over HTTP; debug/compat)
+- `/api/sessions/:id/text` (plain-text rendering of the current terminal buffer)

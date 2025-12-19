@@ -173,14 +173,14 @@ Mac App:
   SessionMonitor (Swift) → NotificationService → macOS notifications
   
 Server:
-  PtyManager → Basic events → SSE → Web notifications
+  PtyManager → Basic events → WS v3 → Web notifications
 ```
 
 ### Proposed Architecture
 
 ```
 Server:
-  PtyManager → SessionMonitor (TypeScript) → Enhanced events → SSE/WebSocket
+  PtyManager → SessionMonitor (TypeScript) → Enhanced events → WS v3
                                                                     ↓
                                                         Mac & Web clients
 ```
@@ -273,19 +273,14 @@ class PtyManager {
 }
 ```
 
-#### 4. Update Server Routes
+#### 4. Update Server WS v3 Hub
 
 ```typescript
-// web/src/server/routes/events.ts
+// web/src/server/services/ws-v3-hub.ts
 
-// Enhanced event handling
-serverEventBus.on('notification', (event: ServerEvent) => {
-  // Send to all connected SSE clients
-  broadcastEvent(event);
-  
-  // Log for debugging
-  logger.info(`📢 Notification event: ${event.type} for session ${event.sessionId}`);
-});
+// SessionMonitor emits ServerEvent objects.
+// WsV3Hub broadcasts EVENT frames to clients that SUBSCRIBE with:
+//   sessionId == "" and flags include WsV3SubscribeFlags.Events
 ```
 
 #### 5. Update Mac NotificationService
@@ -295,21 +290,10 @@ serverEventBus.on('notification', (event: ServerEvent) => {
 
 class NotificationService {
     // Remove local SessionMonitor dependency
-    // Subscribe to server SSE events instead
+    // Subscribe to server WS v3 events instead
     
     private func connectToServerEvents() {
-        eventSource = EventSource(url: "http://localhost:4020/api/events")
-        
-        eventSource.onMessage { event in
-            guard let data = event.data,
-                  let serverEvent = try? JSONDecoder().decode(ServerEvent.self, from: data) else {
-                return
-            }
-            
-            Task { @MainActor in
-                self.handleServerEvent(serverEvent)
-            }
-        }
+        // WS v3: connect `/ws`, send SUBSCRIBE(sessionId:"", flags: Events)
     }
     
     private func handleServerEvent(_ event: ServerEvent) {

@@ -21,9 +21,8 @@ This document provides a comprehensive map of the VibeTunnel web application arc
 - **Routes**: `src/server/routes/sessions.ts:134-1252` - Session API
 
 ### Real-time Communication
-- **Binary Buffer**: `src/server/services/terminal-manager.ts:378-574` - Buffer encoding
-- **WebSocket Server**: `src/server/services/buffer-aggregator.ts:44-344` - Buffer streaming
-- **Input Handler**: `src/server/routes/websocket-input.ts:156-164` - Input protocol
+- **VT Snapshot v1**: `src/server/services/terminal-manager.ts:378-574` - Snapshot encoding
+- **WebSocket v3 Hub**: `src/server/services/ws-v3-hub.ts` - Multiplexed stdout/snapshots/events + input
 
 ### Client Core
 - **Entry Point**: `src/client/app-entry.ts:1-28` - App initialization
@@ -143,7 +142,6 @@ The server provides a comprehensive API for terminal session management with sup
 - `POST /api/sessions/:id/input` - Send input
 - `POST /api/sessions/:id/resize` - Resize terminal
 - `GET /api/sessions/:id/text` - Get text output
-- `GET /api/sessions/:id/buffer` - Get VT snapshot bytes (debug/compat)
 
 #### Authentication
 - `POST /api/auth/challenge` - Request challenge
@@ -235,7 +233,7 @@ Message Types:
 ### Request Routing
 - HQ checks session ownership via registry
 - Forwards API requests to appropriate remote
-- Proxies SSE streams transparently
+- Proxies WS v3 streams transparently
 - Multiplexes WebSocket connections
 
 ### High Availability

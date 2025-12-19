@@ -98,7 +98,7 @@ The iOS app already implements most core functionality but lacks several feature
 |---------|-----|-----|--------|---------------------|
 | Split view | Side-by-side list/terminal | iPad multitasking | ✅ Different | iPad split view is better |
 | WebSocket binary | ✓ | ✓ | ✅ Complete | - |
-| SSE streaming | Text output | Not used | N/A | WebSocket is sufficient |
+| Legacy SSE streaming | Removed | Removed | ✅ Removed | WebSocket v3 is the only transport |
 | Offline support | Service worker | Basic offline handling | ⚠️ Partial | Improve offline mode |
 | PWA features | Installable | Native app | N/A | Already native |
 | URL routing | Deep links | URL schemes | ✅ Complete | - |

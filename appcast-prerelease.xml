@@ -198,7 +198,6 @@
                 <h3><strong>Terminal Performance Mode (Experimental) </strong></h3>
                 <ul>
                 <li>New binary WebSocket mode for terminal sessions dramatically improves performance for high-throughput operations (#412)</li>
-                <li>Toggle between standard SSE mode and high-performance binary mode in terminal settings</li>
                 <li>Binary mode significantly reduces latency and CPU usage when running commands with heavy output</li>
                 <li>Seamless switching between modes without losing your session</li>
                 </ul>

@@ -67,7 +67,7 @@ Terminal Events → Session Monitor → Event Processing → Notification Servic
 
 #### 3. Notification Service (`NotificationService.swift`)
 - **macOS integration**: Uses `UserNotifications` framework
-- **Event source**: Connects to server via SSE at `/api/events`
+- **Event source**: Connects to server via WebSocket v3 at `/ws` (global subscription for `EVENT` frames)
 - **Preference management**: Checks user settings before sending
 - **Permission handling**: Manages notification authorization
 

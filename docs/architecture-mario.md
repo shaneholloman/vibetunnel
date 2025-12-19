@@ -47,7 +47,7 @@ sequenceDiagram
     alt External Terminal
         FWD-->>TTY: mirror stdout to terminal
     end
-    Server-->>UI: SSE stream (truncated)
+    Server-->>UI: WS v3 stream (truncated + multiplexed)
 ```
 
 ### Key Files and Their Roles

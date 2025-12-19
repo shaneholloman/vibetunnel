@@ -9,7 +9,7 @@
 - **Native macOS** (Swift/SwiftUI) in `mac/` - main app + terminal session management
 - **iOS companion** in `ios/` - mobile interface
 - **Web stack** in `web/` - TypeScript/LitElement frontend + Node.js/Bun server for terminal sessions
-- **Key APIs**: `/api/sessions` (create), `/api/sessions/:id/input` (send), `/api/sessions/:id/stream` (SSE output), `/buffers` (WebSocket binary)
+- **Key APIs**: `/api/sessions` (create/list), `/ws` (WebSocket v3: stdout/snapshots/events + input/resize/kill)
 - **Entry points**: `mac/VibeTunnel/VibeTunnelApp.swift`, `web/src/client/app.ts`, `web/src/server/server.ts`
 
 ## Code Style
