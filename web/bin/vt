@@ -492,12 +492,14 @@ resolve_command() {
             # `shopt -s expand_aliases` inside the same `-c` string is too late.
             local cmd_string
             cmd_string="$(printf '%q ' "$cmd" "$@")"
-            local bash_env
-            bash_env=<(printf '%s\n' \
-                'shopt -s expand_aliases' \
-                'source ~/.bashrc 2>/dev/null || source ~/.bash_profile 2>/dev/null || true' \
-            )
-            exec_fwd ${VERBOSITY_ARGS:+$VERBOSITY_ARGS} ${TITLE_MODE_ARGS:+"$TITLE_MODE_ARGS"} /usr/bin/env BASH_ENV="$bash_env" "$user_shell" -c "$cmd_string"
+            local bash_env_file
+            bash_env_file="$(mktemp "${TMPDIR:-/tmp}/vt-bash-env.XXXXXX")"
+            cat >"$bash_env_file" <<'EOF'
+shopt -s expand_aliases
+source ~/.bashrc 2>/dev/null || source ~/.bash_profile 2>/dev/null || true
+rm -f "$BASH_ENV"
+EOF
+            exec_fwd ${VERBOSITY_ARGS:+$VERBOSITY_ARGS} ${TITLE_MODE_ARGS:+"$TITLE_MODE_ARGS"} /usr/bin/env BASH_ENV="$bash_env_file" "$user_shell" -c "$cmd_string"
             ;;
         *)
             # Generic shell handling
