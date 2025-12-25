@@ -27,9 +27,7 @@ function tmux(args: string[], env: NodeJS.ProcessEnv): void {
   }
 
   throw new Error(
-    `tmux ${args.join(' ')} failed with code ${result.status ?? 'null'}:\n${String(
-      result.stderr
-    )}`
+    `tmux ${args.join(' ')} failed with code ${result.status ?? 'null'}:\n${String(result.stderr)}`
   );
 }
 
