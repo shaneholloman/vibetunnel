@@ -405,6 +405,7 @@ describe('vt wrapper flows', () => {
       writeFileSync(path.join(repoDir, 'README.md'), `test-${Date.now()}\n`, 'utf-8');
       runGit(repoDir, ['add', 'README.md']);
       runGit(repoDir, ['commit', '-m', 'init']);
+      runGit(repoDir, ['config', 'core.hooksPath', '.hooks']);
       runGit(repoDir, ['branch', 'feature']);
       runGit(repoDir, ['worktree', 'add', worktreeDir, 'feature']);
 
@@ -425,7 +426,7 @@ describe('vt wrapper flows', () => {
       expect(followWorktree.code).toBe(0);
       expect(realpathSync(followWorktree.stdout.trim())).toBe(realpathSync(worktreeDir));
 
-      const hooksDir = path.join(repoDir, '.git', 'hooks');
+      const hooksDir = path.join(repoDir, '.hooks');
       const postCommit = readFileSync(path.join(hooksDir, 'post-commit'), 'utf-8');
       const postCheckout = readFileSync(path.join(hooksDir, 'post-checkout'), 'utf-8');
       expect(postCommit).toContain('VibeTunnel Git hook');
