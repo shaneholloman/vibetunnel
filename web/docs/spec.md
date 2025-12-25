@@ -196,31 +196,23 @@ Cell Type Byte:
 └── Bits 1-0: Character type (00=space, 01=ASCII, 10=Unicode)
 ```
 
-## fwd.ts Application
+## vibetunnel-fwd (Zig forwarder)
 
-The `fwd.ts` tool (`src/server/fwd.ts`) wraps any command in a VibeTunnel session:
+The `vibetunnel-fwd` binary (`native/vt-fwd`) wraps any command in a VibeTunnel session:
 
-**Usage**: `pnpm exec tsx src/fwd.ts [options] <command> [args...]`
+**Usage**: `vibetunnel-fwd [--session-id <id>] [--title-mode <mode>] [--verbosity <level>] <command> [args...]`
 
 **Options**:
-- `--session-id <id>`: Use specific session ID
+- `--session-id <id>`: Use a pre-generated session ID
 - `--title-mode <mode>`: none|filter|static|dynamic
-- `--update-title <title>`: Update existing session title
+- `--update-title <title>`: Update existing session title and exit (requires --session-id)
 
-**Features**:
-- Dynamic title mode is a legacy alias of static (no activity tracking)
-- Forwards stdin/stdout through PTY infrastructure
-- Creates sessions accessible via web interface
-- Sends control commands over the IPC socket (resize/kill/update-title)
+**Artifacts**:
+- `{control_dir}/{session_id}/session.json`
+- `{control_dir}/{session_id}/stdout` (asciinema v2)
+- `{control_dir}/{session_id}/ipc.sock` (binary framed)
 
-**Socket Protocol** (`src/server/pty/socket-protocol.ts`):
-```
-Message Types:
-├── stdin: { type: 'stdin', data: Buffer }
-├── resize: { type: 'resize', cols: number, rows: number }
-├── kill: { type: 'kill', signal?: string }
-└── update-title: { type: 'update-title', title: string }
-```
+See `socket-protocol.md` for IPC framing and message types.
 
 ## HQ Mode & Distributed Architecture
 

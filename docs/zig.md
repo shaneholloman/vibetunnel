@@ -12,7 +12,7 @@
 - Server-managed PTY rewrite in this phase.
 
 ## Current State (vt / fwd)
-- `vt` wrapper → `vibetunnel fwd` (Node) → node-pty.
+- `vt` wrapper → `vibetunnel-fwd` (zig) → PTY + stdout + ipc.sock + session.json.
 - Writes `~/.vibetunnel/control/<id>/session.json` + `stdout` (asciinema v2).
 - IPC via `ipc.sock` with framed protocol (stdin/resize/kill/update-title).
 - Dynamic title mode is legacy alias of static (no activity tracking).
@@ -91,9 +91,7 @@ Done:
 
 ### Phase 5: Integration + Switch
 - Update `web/bin/vt` to prefer `vibetunnel-fwd` if present.
-- `vibetunnel fwd` path:
-  - Option A: exec `vibetunnel-fwd` directly.
-  - Option B: keep Node `fwd` as fallback behind env flag.
+- `vibetunnel fwd` path: exec `vibetunnel-fwd` directly (no Node fallback).
 - Packaging:
   - `web/scripts/build-npm.js`: include Zig binary.
   - `mac/scripts/build-web-frontend.sh`: copy Zig binary into app bundle.
@@ -114,8 +112,7 @@ Done:
 - Verified no `claude-turn` tests remain.
 
 ## Rollout Plan
-- Feature flag: `VIBETUNNEL_USE_ZIG_FWD=1`.
-- Dual-path fallback until stable.
+- Zig forwarder always-on; Node forwarder removed.
 - Metrics: start latency, RSS, failures in `vt` integration tests.
 
 ## Risks + Mitigations

@@ -14,7 +14,7 @@ VibeTunnel uses a binary framed message protocol over Unix domain sockets for al
    - Manages PTY process I/O
    - Tracks session state
 
-2. **Socket Client** (fwd.ts and other clients)
+2. **Socket Client** (`vibetunnel-fwd` and other clients)
    - Connects to session's Unix socket
    - Sends stdin data and control commands
    - Receives errors and server responses

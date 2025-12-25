@@ -246,7 +246,7 @@ The server is built as a standalone Bun executable that embeds:
 **Key Components**:
 - `server.ts` - HTTP server initialization and lifecycle
 - `app.ts` - Express application setup and middleware
-- `fwd.ts` - Main entry point for terminal forwarding
+- `native/vt-fwd` - External terminal forwarder (Zig, built as `vibetunnel-fwd`)
 - `pty/pty-manager.ts` - Native PTY process management
 - `pty/session-manager.ts` - Terminal session lifecycle
 - `services/terminal-manager.ts` - High-level terminal operations

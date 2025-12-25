@@ -744,7 +744,7 @@ export class PtyManager extends EventEmitter {
           );
         }
 
-        // Call exit callback if provided (for fwd.ts)
+        // Call exit callback if provided (for forwarder clients)
         if (onExit) {
           onExit(exitCode || 0, signal);
         }
@@ -1460,7 +1460,7 @@ export class PtyManager extends EventEmitter {
           memorySession.ptyProcess.kill('SIGKILL');
 
           // Note: We no longer kill the process group to avoid affecting other sessions
-          // that might share the same process group (e.g., multiple fwd.ts instances)
+          // that might share the same process group (e.g., multiple forwarder instances)
 
           this.sessions.delete(sessionId);
           // Wait a bit for SIGKILL to take effect
@@ -1498,7 +1498,7 @@ export class PtyManager extends EventEmitter {
             process.kill(diskSession.pid, 'SIGKILL');
 
             // Note: We no longer kill the process group to avoid affecting other sessions
-            // that might share the same process group (e.g., multiple fwd.ts instances)
+            // that might share the same process group (e.g., multiple forwarder instances)
 
             await new Promise((resolve) => setTimeout(resolve, 100));
             return;
@@ -1508,7 +1508,7 @@ export class PtyManager extends EventEmitter {
           process.kill(diskSession.pid, 'SIGTERM');
 
           // Note: We no longer kill the process group to avoid affecting other sessions
-          // that might share the same process group (e.g., multiple fwd.ts instances)
+          // that might share the same process group (e.g., multiple forwarder instances)
 
           // Wait up to 3 seconds for graceful termination
           const maxWaitTime = 3000;
@@ -1529,7 +1529,7 @@ export class PtyManager extends EventEmitter {
           process.kill(diskSession.pid, 'SIGKILL');
 
           // Note: We no longer kill the process group to avoid affecting other sessions
-          // that might share the same process group (e.g., multiple fwd.ts instances)
+          // that might share the same process group (e.g., multiple forwarder instances)
 
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
@@ -1560,7 +1560,7 @@ export class PtyManager extends EventEmitter {
       session.ptyProcess.kill('SIGTERM');
 
       // Note: We no longer kill the process group to avoid affecting other sessions
-      // that might share the same process group (e.g., multiple fwd.ts instances)
+      // that might share the same process group (e.g., multiple forwarder instances)
 
       // Wait up to 3 seconds for graceful termination (check every 500ms)
       const maxWaitTime = 3000;
@@ -1590,7 +1590,7 @@ export class PtyManager extends EventEmitter {
 
         // Also force kill the entire process group if on Unix
         // Note: We no longer kill the process group to avoid affecting other sessions
-        // that might share the same process group (e.g., multiple fwd.ts instances)
+        // that might share the same process group (e.g., multiple forwarder instances)
 
         // Wait a bit more for SIGKILL to take effect
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1742,7 +1742,7 @@ export class PtyManager extends EventEmitter {
           session.ptyProcess.kill();
 
           // Note: We no longer kill the process group to avoid affecting other sessions
-          // that might share the same process group (e.g., multiple fwd.ts instances)
+          // that might share the same process group (e.g., multiple forwarder instances)
           // The shutdown() method is only called during server shutdown where we DO want
           // to clean up all sessions, but we still avoid process group kills to be safe
         }

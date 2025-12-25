@@ -72,7 +72,7 @@ run_test "Shell command without -- separator" \
     "$VIBETUNNEL_BIN fwd /bin/zsh -i -c \"echo 'alias test works'\"" \
     "alias test works"
 
-# Test 3: Test that -- is handled correctly if present in fwd.ts
+# Test 3: Test that -- can be passed as an argument
 run_test "Command with -- as argument" \
     "$VIBETUNNEL_BIN fwd echo -- test" \
     "-- test"

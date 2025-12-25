@@ -29,7 +29,7 @@ When referencing code locations, you MUST use clickable format that VS Code reco
 - `path/to/file.ts:123-456` (ranges)
 - Always use relative paths from the project root
 - Examples:
-  - `src/server/fwd.ts:92` - single line reference
+  - `src/cli.ts:92` - single line reference
   - `src/server/pty/pty-manager.ts:274-280` - line range
   - `web/src/client/app.ts:15` - when in parent directory
 

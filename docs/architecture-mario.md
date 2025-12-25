@@ -6,7 +6,7 @@ This document contains comprehensive technical insights from Mario's debugging s
 
 Mario identified two critical issues causing performance problems in VibeTunnel:
 
-1. **850MB Session Bug**: External terminal sessions (via `fwd.ts`) bypass the clear sequence truncation in `stream-watcher.ts`, sending entire gigabyte files instead of the last 2MB
+1. **850MB Session Bug**: External terminal sessions (via `vibetunnel-fwd`) bypass the clear sequence truncation in `stream-watcher.ts`, sending entire gigabyte files instead of the last 2MB
 2. **Resize Loop**: Claude terminal app issues full clear sequence (`\x1b[2J`) and re-renders entire scroll buffer on every resize event, creating exponential data growth
 
 Note: A third issue with Node-PTY's shared pipe architecture causing Electron crashes has already been resolved with a custom PTY implementation.
@@ -35,7 +35,7 @@ sequenceDiagram
     participant WS as WebSocket
     participant Server as Node Server
     participant PTY as PTYManager
-    participant FWD as fwd.ts
+    participant FWD as vibetunnel-fwd
     participant Proc as User Process
     
     UI->>WS: keystrokes
@@ -57,7 +57,7 @@ sequenceDiagram
 | `server.ts` | Main web server | HTTP endpoints, WebSocket handling |
 | `pty-manager.ts` | PTY lifecycle management | `createSession()`, `setupPtyHandlers()` |
 | `stream-watcher.ts` | Monitors ascinema files | `sendExistingContent()` - implements clear truncation |
-| `fwd.ts` | External terminal forwarding | Process spawning, **BYPASSES TRUNCATION** |
+| `vibetunnel-fwd` | External terminal forwarding | Process spawning, **BYPASSES TRUNCATION** |
 | `terminal-manager.ts` | Binary buffer rendering | Converts ANSI to binary cells format |
 
 ### Data Flow Paths
@@ -102,7 +102,7 @@ Benefits:
 
 **Symptom**: Sessions with large output (850MB+) cause infinite loading and browser unresponsiveness.
 
-**Root Cause**: External terminal sessions via `fwd.ts` bypass the clear sequence truncation logic.
+**Root Cause**: External terminal sessions via `vibetunnel-fwd` bypass the clear sequence truncation logic.
 
 **Technical Details**:
 ```javascript
@@ -185,7 +185,7 @@ function findLastClearSequence(buffer) {
 **Problem**: External terminal sessions don't use `sendExistingContent()` truncation.
 
 **Investigation Needed**:
-1. Trace how `fwd.ts` connects to client streams
+1. Trace how `vibetunnel-fwd` connects to client streams
 2. Determine why it bypasses stream-watcher's truncation
 3. Ensure external terminals use same code path as server sessions
 4. Test with 980MB file to verify fix
@@ -341,7 +341,7 @@ window.addEventListener('resize', () => {
 ## Action Plan Summary
 
 1. **Immediate (End of Week)**: Fix external terminal truncation bug
-   - Debug why `fwd.ts` bypasses `sendExistingContent()`
+   - Debug why `vibetunnel-fwd` bypasses `sendExistingContent()`
    - Deploy fix for immediate user relief
 
 2. **Short Term**: Comprehensive resize fix

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessUtils } from '../../server/pty/process-utils.js';
 
-describe('fwd.ts argument parsing with -- separator', () => {
+describe('ProcessUtils command parsing', () => {
   beforeEach(() => {
     // Clear any mocks
     vi.clearAllMocks();
@@ -31,8 +31,8 @@ describe('fwd.ts argument parsing with -- separator', () => {
     });
 
     it('should handle fallback behavior when -- is incorrectly passed (legacy test)', () => {
-      // This documents the old behavior before fwd.ts was fixed to strip --
-      // In practice, this scenario should no longer occur as fwd.ts removes -- before calling ProcessUtils
+      // This documents legacy behavior before wrappers stripped leading `--`.
+      // In practice, this scenario should no longer occur as callers remove `--` before calling ProcessUtils.
       const command = ['--', '/bin/zsh', '-i', '-c', 'echo "hello"'];
       const result = ProcessUtils.resolveCommand(command);
 
@@ -76,12 +76,12 @@ describe('fwd.ts argument parsing with -- separator', () => {
     });
   });
 
-  describe('fwd.ts command parsing integration', () => {
+  describe('wrapper command parsing integration', () => {
     it('should strip -- separator before passing to ProcessUtils', () => {
-      // This is what should happen in fwd.ts
+      // This is what should happen in wrappers before calling ProcessUtils
       const args = ['--', '/bin/zsh', '-i', '-c', 'echo "hello"'];
 
-      // The fix: fwd.ts should detect and remove the -- separator
+      // The fix: detect and remove the -- separator
       let command = args;
       if (command[0] === '--' && command.length > 1) {
         command = command.slice(1);

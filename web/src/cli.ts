@@ -4,7 +4,6 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { startVibeTunnelForward } from './server/fwd.js';
 import { startVibeTunnelServer } from './server/server.js';
 import { closeLogger, createLogger, initLogger, VerbosityLevel } from './server/utils/logger.js';
 import { parseVerbosityFromEnv } from './server/utils/verbosity-parser.js';
@@ -66,7 +65,7 @@ function printHelp(): void {
   console.log('');
   console.log('Usage:');
   console.log('  vibetunnel [options]                    Start VibeTunnel server');
-  console.log('  vibetunnel fwd <session-id> <command>   Forward command to session');
+  console.log('  vibetunnel fwd [options] <command>      Run command in a forwarded session');
   console.log('  vibetunnel status                       Show server and follow mode status');
   console.log('  vibetunnel follow [branch]              Enable Git follow mode');
   console.log('  vibetunnel unfollow                     Disable Git follow mode');
@@ -82,7 +81,7 @@ function printHelp(): void {
   console.log('');
   console.log('Examples:');
   console.log('  vibetunnel --port 8080 --no-auth');
-  console.log('  vibetunnel fwd abc123 "ls -la"');
+  console.log('  vibetunnel fwd --title-mode static bash');
   console.log('  vibetunnel systemd');
   console.log('  vibetunnel systemd uninstall');
   console.log('');
@@ -125,22 +124,26 @@ async function handleForwardCommand(): Promise<void> {
 
   try {
     const forwarder = resolveForwarder();
-    if (forwarder) {
-      const args = process.argv.slice(3);
-      const child = spawn(forwarder, args, { stdio: 'inherit' });
-      child.on('error', (error) => {
-        logger.error('Failed to start native forwarder:', error);
-        closeLogger();
-        process.exit(1);
-      });
-      child.on('exit', (code) => {
-        closeLogger();
-        process.exit(code ?? 1);
-      });
-      return;
+    if (!forwarder) {
+      logger.error(
+        `vibetunnel-fwd not found. Set VIBETUNNEL_FWD_BIN or build it: cd web && node scripts/build-fwd-zig.js (cwd: ${process.cwd()})`
+      );
+      closeLogger();
+      process.exit(1);
     }
 
-    await startVibeTunnelForward(process.argv.slice(3));
+    const args = process.argv.slice(3);
+    const child = spawn(forwarder, args, { stdio: 'inherit' });
+    child.on('error', (error) => {
+      logger.error('Failed to start native forwarder:', error);
+      closeLogger();
+      process.exit(1);
+    });
+    child.on('exit', (code) => {
+      closeLogger();
+      process.exit(code ?? 1);
+    });
+    return;
   } catch (error) {
     logger.error('Fatal error:', error);
     closeLogger();

@@ -45,16 +45,16 @@ Terminal Title Mode: [Static ▼]
   - Dynamic (legacy) - Same as Static
 ```
 
-### Command Line (fwd.ts)
+### Command Line (`vibetunnel-fwd`)
 
 ```bash
 # Explicitly set title mode
-pnpm exec tsx src/server/fwd.ts --title-mode static bash
-pnpm exec tsx src/server/fwd.ts --title-mode filter vim
-pnpm exec tsx src/server/fwd.ts --title-mode dynamic python
+vibetunnel-fwd --title-mode static bash
+vibetunnel-fwd --title-mode filter vim
+vibetunnel-fwd --title-mode dynamic python
 
 # Using environment variable
-VIBETUNNEL_TITLE_MODE=static pnpm exec tsx src/server/fwd.ts zsh
+VIBETUNNEL_TITLE_MODE=static vibetunnel-fwd zsh
 ```
 
 ## Implementation Details

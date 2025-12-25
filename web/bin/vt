@@ -461,7 +461,7 @@ exec_fwd() {
     if [ -n "$VIBETUNNEL_FWD_BIN" ] && [ -x "$VIBETUNNEL_FWD_BIN" ]; then
         exec_with_fallback "$VIBETUNNEL_FWD_BIN" "$@"
     else
-        # Fall back to Node.js forwarder
+        # Fall back to vibetunnel fwd (which will exec vibetunnel-fwd if available)
         exec_with_fallback "$VIBETUNNEL_BIN" fwd "$@"
     fi
 }

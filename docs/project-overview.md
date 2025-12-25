@@ -10,7 +10,7 @@ The project provides a native macOS menu bar application that runs a local HTTP 
 **Main Entry Points**
 - `mac/VibeTunnel/VibeTunnelApp.swift` - macOS app entry point with menu bar integration
 - `ios/VibeTunnel/App/VibeTunnelApp.swift` - iOS companion app entry  
-- `web/src/index.ts` - Node.js server entry point for terminal forwarding
+- `web/src/cli.ts` - Standalone server CLI entry point (`vibetunnel`)
 - `mac/VibeTunnel/Utilities/CLIInstaller.swift` - CLI tool (`vt`) installer
 
 **Core Configuration**
@@ -30,7 +30,7 @@ The project provides a native macOS menu bar application that runs a local HTTP 
 
 **Web Server** - Node.js/TypeScript with Bun runtime
 - HTTP/WebSocket server: `web/src/server/server.ts`
-- Terminal forwarding: `web/src/server/fwd.ts`
+- Terminal forwarding: Zig forwarder `vibetunnel-fwd` (`native/vt-fwd`)
 - Session management: `web/src/server/lib/sessions.ts`
 - PTY integration: `@homebridge/node-pty-prebuilt-multiarch`
 
