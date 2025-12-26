@@ -821,7 +821,7 @@ export async function createApp(): Promise<AppInstance> {
           (tailscaleStatus.funnelEnabled || false);
         const tailscaleAvailable =
           tailscaleStatus.isRunning && !tailscaleStatus.isPermanentlyDisabled;
-        
+
         connections.tailscale = {
           available: tailscaleAvailable,
           isRunning: tailscaleStatus.isRunning,

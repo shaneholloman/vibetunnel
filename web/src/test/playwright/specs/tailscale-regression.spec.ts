@@ -82,7 +82,9 @@ test.describe('Tailscale Regression Tests - Release 15 Fixes', () => {
         // If binding to a network interface, ensure it's not loopback
         expect(bindAddress).not.toBe('127.0.0.1');
       } else {
-        console.log('Server bound to loopback in this environment; skipping network bind assertion');
+        console.log(
+          'Server bound to loopback in this environment; skipping network bind assertion'
+        );
       }
     }
   });

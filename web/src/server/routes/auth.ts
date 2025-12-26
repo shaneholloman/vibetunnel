@@ -12,11 +12,7 @@ interface AuthRoutesConfig {
 
 function isFromLocalhost(req: AuthenticatedRequest): boolean {
   const remoteAddr = req.socket.remoteAddress;
-  return (
-    remoteAddr === '127.0.0.1' ||
-    remoteAddr === '::1' ||
-    remoteAddr === '::ffff:127.0.0.1'
-  );
+  return remoteAddr === '127.0.0.1' || remoteAddr === '::1' || remoteAddr === '::ffff:127.0.0.1';
 }
 
 function hasProxyHeaders(req: AuthenticatedRequest): boolean {

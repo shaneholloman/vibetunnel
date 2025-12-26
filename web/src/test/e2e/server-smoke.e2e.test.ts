@@ -36,10 +36,10 @@ describe('Server Smoke Test', () => {
 
     // 1. Health check
     console.log('1. Testing health check...');
-  const healthResponse = await fetch(`${baseUrl}/api/health`);
-  expect(healthResponse.ok).toBe(true);
-  const health = await healthResponse.json();
-  expect(health.status).toBe('healthy');
+    const healthResponse = await fetch(`${baseUrl}/api/health`);
+    expect(healthResponse.ok).toBe(true);
+    const health = await healthResponse.json();
+    expect(health.status).toBe('healthy');
 
     // 2. List sessions (should be empty)
     console.log('2. Listing sessions...');

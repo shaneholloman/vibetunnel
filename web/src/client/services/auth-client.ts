@@ -92,11 +92,7 @@ export class AuthClient {
   /**
    * Set current user from externally-provided token (e.g. Tailscale auth)
    */
-  setCurrentUserFromToken(
-    userId: string,
-    token: string,
-    authMethod: User['authMethod']
-  ): void {
+  setCurrentUserFromToken(userId: string, token: string, authMethod: User['authMethod']): void {
     this.setCurrentUser({
       userId,
       token,
