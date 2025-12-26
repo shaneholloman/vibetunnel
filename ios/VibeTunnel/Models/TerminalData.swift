@@ -36,16 +36,15 @@ enum TerminalEvent {
         }
 
         // Try to parse as array event
-        guard let array = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
+        guard let array = JSONValue.decodeArray(from: data) else {
             return nil
         }
 
         // Check for exit event: ["exit", exitCode, sessionId]
         if array.count == 3,
-           let exitString = array[0] as? String,
-           exitString == "exit",
-           let exitCode = array[1] as? Int,
-           let sessionId = array[2] as? String
+           array[0].string == "exit",
+           let exitCode = array[1].int,
+           let sessionId = array[2].string
         {
             self = .exit(code: exitCode, sessionId: sessionId)
             return
@@ -53,9 +52,9 @@ enum TerminalEvent {
 
         // Parse normal events: [timestamp, "type", "data"]
         guard array.count >= 3,
-              let timestamp = array[0] as? Double,
-              let typeString = array[1] as? String,
-              let eventData = array[2] as? String
+              let timestamp = array[0].double,
+              let typeString = array[1].string,
+              let eventData = array[2].string
         else {
             return nil
         }

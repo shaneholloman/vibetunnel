@@ -515,15 +515,15 @@ class ServerListViewModel: ServerListViewModelProtocol {
                     // connectionLogger.info("🔍 Health endpoint responded with 200")
 
                     // Parse health response
-                    if let healthData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let connections = healthData["connections"] as? [String: Any]
+                    if let health = try? JSONDecoder().decode(HealthResponse.self, from: data),
+                       let connections = health.connections
                     {
                         // connectionLogger.info("🔍 Health data connections: \(connections)")
 
                         // Check for Tailscale info
-                        if let tailscale = connections["tailscale"] as? [String: Any] {
-                            let httpsAvailable = tailscale["httpsAvailable"] as? Bool ?? false
-                            let isPublic = tailscale["isPublic"] as? Bool ?? false
+                        if let tailscale = connections.tailscale {
+                            let httpsAvailable = tailscale.httpsAvailable ?? false
+                            let isPublic = tailscale.isPublic ?? false
 
                             // connectionLogger.info("🔍 Tailscale data - HTTPS: \(httpsAvailable), Public: \(isPublic)")
 
@@ -535,8 +535,8 @@ class ServerListViewModel: ServerListViewModelProtocol {
                         }
 
                         // Fallback to general connection info
-                        let httpsAvailable = connections["sslAvailable"] as? Bool ?? false
-                        let isPublic = connections["isPublic"] as? Bool ?? false
+                        let httpsAvailable = connections.sslAvailable ?? false
+                        let isPublic = connections.isPublic ?? false
 
                         connectionLogger
                             .info("🔍 General connection data - HTTPS: \(httpsAvailable), Public: \(isPublic)")
@@ -594,19 +594,17 @@ class ServerListViewModel: ServerListViewModelProtocol {
                     if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                         probeSuccess = true
                         // Parse health response for Tailscale info
-                        if let healthData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                            if let tailscaleUrl = healthData["tailscaleUrl"] as? String {
+                        if let health = try? JSONDecoder().decode(HealthResponse.self, from: data) {
+                            if health.tailscaleUrl != nil {
                                 httpsAvailable = true
                                 // connectionLogger.info("🔍 Found Tailscale HTTPS URL: \(tailscaleUrl)")
                             }
 
-                            if let connections = healthData["connections"] as? [String: Any],
-                               let tailscale = connections["tailscale"] as? [String: Any]
-                            {
-                                if tailscale["httpsUrl"] != nil {
+                            if let tailscale = health.connections?.tailscale {
+                                if tailscale.httpsUrl != nil {
                                     httpsAvailable = true
                                 }
-                                if let funnel = tailscale["funnel"] as? Bool {
+                                if let funnel = tailscale.funnel {
                                     isPublic = funnel
                                     // connectionLogger.info("🔍 Tailscale Funnel status: \(funnel)")
                                 }

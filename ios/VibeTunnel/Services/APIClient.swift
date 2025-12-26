@@ -404,44 +404,32 @@ class APIClient: APIClientProtocol {
         for line in lines {
             guard let data = line.data(using: .utf8) else { continue }
 
-            // Try to parse as JSON
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                // This is the header
-                if let version = json["version"] as? Int,
-                   let width = json["width"] as? Int,
-                   let height = json["height"] as? Int
-                {
-                    header = AsciinemaHeader(
-                        version: version,
-                        width: width,
-                        height: height,
-                        timestamp: json["timestamp"] as? Double,
-                        duration: json["duration"] as? Double,
-                        command: json["command"] as? String,
-                        title: json["title"] as? String,
-                        env: json["env"] as? [String: String])
-                }
-            } else if let json = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-                // This is an event array [timestamp, type, data]
-                if json.count >= 3,
-                   let timestamp = json[0] as? Double,
-                   let typeStr = json[1] as? String,
-                   let eventData = json[2] as? String
-                {
-                    let eventType: AsciinemaEvent.EventType
-                    switch typeStr {
-                    case "o": eventType = .output
-                    case "i": eventType = .input
-                    case "r": eventType = .resize
-                    case "m": eventType = .marker
-                    default: continue
-                    }
+            // Try to parse as header first
+            if let decodedHeader = try? JSONDecoder().decode(AsciinemaHeader.self, from: data) {
+                header = decodedHeader
+                continue
+            }
 
-                    events.append(AsciinemaEvent(
-                        time: timestamp,
-                        type: eventType,
-                        data: eventData))
+            // Parse event array [timestamp, type, data]
+            if let json = JSONValue.decodeArray(from: data),
+               json.count >= 3,
+               let timestamp = json[0].double,
+               let typeStr = json[1].string,
+               let eventData = json[2].string
+            {
+                let eventType: AsciinemaEvent.EventType
+                switch typeStr {
+                case "o": eventType = .output
+                case "i": eventType = .input
+                case "r": eventType = .resize
+                case "m": eventType = .marker
+                default: continue
                 }
+
+                events.append(AsciinemaEvent(
+                    time: timestamp,
+                    type: eventType,
+                    data: eventData))
             }
         }
 

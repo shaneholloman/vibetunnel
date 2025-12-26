@@ -447,8 +447,8 @@ class ServerManager {
             if let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200 {
                     // Parse the server response
-                    if let jsonData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let cleanedCount = jsonData["localCleaned"] as? Int
+                    if let jsonData = JSONValue.decodeObject(from: data),
+                       let cleanedCount = jsonData["localCleaned"]?.int
                     {
                         self.logger.info("Initial cleanup completed: cleaned \(cleanedCount) exited sessions")
                     } else {

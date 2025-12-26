@@ -93,9 +93,9 @@ struct ServerConfigTests {
             port: 8080)
 
         let data = try JSONEncoder().encode(configNoAuth)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let decoded = try JSONDecoder().decode(ServerConfig.self, from: data)
 
-        #expect(json?["name"] == nil)
+        #expect(decoded.name == nil)
     }
 
     @Test("Equality comparison")

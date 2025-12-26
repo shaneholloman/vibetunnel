@@ -150,7 +150,15 @@ enum ControlProtocol {
             dict["error"] = error
         }
 
-        return try JSONSerialization.data(withJSONObject: dict)
+        guard let value = JSONValue(any: dict) else {
+            throw EncodingError.invalidValue(
+                dict,
+                EncodingError.Context(
+                    codingPath: [],
+                    debugDescription: "Unsupported JSON payload"))
+        }
+
+        return try JSONEncoder().encode(value)
     }
 
     /// For handlers that need to decode specific message types based on action

@@ -110,14 +110,17 @@ final class DevServerManager: ObservableObject {
 
     /// Checks if package.json has a dev script
     private func hasDevScript(at packageJsonPath: String) -> Bool {
+        struct PackageJSON: Decodable {
+            let scripts: [String: String]?
+        }
+
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: packageJsonPath)),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let scripts = json["scripts"] as? [String: String]
+              let package = try? JSONDecoder().decode(PackageJSON.self, from: data)
         else {
             return false
         }
 
-        return scripts["dev"] != nil
+        return package.scripts?["dev"] != nil
     }
 
     /// Gets the expanded path for a given path string

@@ -154,10 +154,10 @@ class MockWebSocket: WebSocketProtocol {
     }
 
     /// Find sent JSON messages
-    func sentJSONMessages() -> [[String: Any]] {
+    func sentJSONMessages() -> [[String: JSONValue]] {
         self.sentStringMessages().compactMap { string in
             guard let data = string.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                  let json = JSONValue.decodeObject(from: data)
             else {
                 return nil
             }

@@ -40,13 +40,13 @@ struct StandaloneAPITests {
 
         let encoder = JSONEncoder()
         let jsonData = try encoder.encode(data)
-        let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        let decoded = try JSONDecoder().decode(SessionCreateData.self, from: jsonData)
 
-        #expect(json?["command"] as? [String] == ["/bin/bash"])
-        #expect(json?["workingDir"] as? String == "/Users/test")
-        #expect(json?["name"] as? String == "Test Session")
-        #expect(json?["cols"] as? Int == 80)
-        #expect(json?["rows"] as? Int == 24)
+        #expect(decoded.command == ["/bin/bash"])
+        #expect(decoded.workingDir == "/Users/test")
+        #expect(decoded.name == "Test Session")
+        #expect(decoded.cols == 80)
+        #expect(decoded.rows == 24)
     }
 
     @Test("Error response parsing")

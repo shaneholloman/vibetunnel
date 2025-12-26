@@ -175,9 +175,13 @@ class CastRecorder {
         // Add all events
         for event in self.events {
             // Cast events are encoded as arrays [time, type, data]
-            let eventArray: [Any] = [event.time, event.type, event.data]
+            let eventArray: [JSONValue] = [
+                .number(event.time),
+                .string(event.type),
+                .string(event.data),
+            ]
 
-            if let jsonData = try? JSONSerialization.data(withJSONObject: eventArray),
+            if let jsonData = try? JSONEncoder().encode(eventArray),
                let jsonString = String(data: jsonData, encoding: .utf8)
             {
                 castContent += jsonString + "\n"
@@ -239,11 +243,11 @@ class CastPlayer {
             let line = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty,
                   let lineData = line.data(using: .utf8),
-                  let array = try? JSONSerialization.jsonObject(with: lineData) as? [Any],
+                  let array = JSONValue.decodeArray(from: lineData),
                   array.count >= 3,
-                  let time = array[0] as? Double,
-                  let type = array[1] as? String,
-                  let data = array[2] as? String
+                  let time = array[0].double,
+                  let type = array[1].string,
+                  let data = array[2].string
             else {
                 continue
             }

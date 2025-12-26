@@ -286,7 +286,8 @@ enum TestFixtures {
             event["data"] = data
         }
 
-        if let jsonData = try? JSONSerialization.data(withJSONObject: event),
+        if let jsonValue = JSONValue(any: event),
+           let jsonData = try? JSONEncoder().encode(jsonValue),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
             return jsonString

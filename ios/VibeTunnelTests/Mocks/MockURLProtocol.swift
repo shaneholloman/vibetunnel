@@ -1,4 +1,5 @@
 import Foundation
+@testable import VibeTunnel
 
 /// Mock URLProtocol for intercepting and stubbing network requests in tests
 class MockURLProtocol: URLProtocol {
@@ -61,7 +62,7 @@ extension MockURLProtocol {
         json: Any)
         throws -> (HTTPURLResponse, Data?)
     {
-        let data = try JSONSerialization.data(withJSONObject: json)
+        let data = try self.encodeJSON(json)
         let headers = ["Content-Type": "application/json"]
         return self.successResponse(for: url, statusCode: statusCode, data: data, headers: headers)
     }
@@ -75,9 +76,16 @@ extension MockURLProtocol {
         var data: Data?
         if let message {
             let json = ["error": message]
-            data = try? JSONSerialization.data(withJSONObject: json)
+            data = try? self.encodeJSON(json)
         }
         return self.successResponse(for: url, statusCode: statusCode, data: data)
+    }
+
+    private static func encodeJSON(_ json: Any) throws -> Data {
+        guard let value = JSONValue(any: json) else {
+            throw URLError(.cannotParseResponse)
+        }
+        return try JSONEncoder().encode(value)
     }
 }
 

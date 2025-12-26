@@ -114,27 +114,20 @@ final class SharedUnixSocketManager {
         }
 
         // Parse category and action to route to correct handler
-        do {
-            // Quick decode to get routing info
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let categoryStr = json["category"] as? String,
-               let action = json["action"] as? String,
-               let category = ControlProtocol.Category(rawValue: categoryStr)
-            {
-                self.logger.info("📨 Control message received: \(category.rawValue):\(action)")
+        // Quick decode to get routing info
+        if let json = JSONValue.decodeObject(from: data),
+           let categoryStr = json["category"]?.string,
+           let action = json["action"]?.string,
+           let category = ControlProtocol.Category(rawValue: categoryStr)
+        {
+            self.logger.info("📨 Control message received: \(category.rawValue):\(action)")
 
-                // Handle control messages
-                Task { @MainActor in
-                    await self.handleControlMessage(category: category, data: data)
-                }
-            } else {
-                self.logger.error("📨 Invalid control message format")
+            // Handle control messages
+            Task { @MainActor in
+                await self.handleControlMessage(category: category, data: data)
             }
-        } catch {
-            self.logger.error("📨 Failed to parse control message: \(error)")
-            if let str = String(data: data, encoding: .utf8) {
-                self.logger.error("📨 Failed message content: \(str)")
-            }
+        } else {
+            self.logger.error("📨 Invalid control message format")
         }
     }
 
@@ -210,22 +203,22 @@ final class SharedUnixSocketManager {
     private func createErrorResponse(for data: Data, category: String, error: String) -> Data? {
         do {
             // Try to get request ID and action for proper error response
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let id = json["id"] as? String,
-               let action = json["action"] as? String,
-               let type = json["type"] as? String,
+            if let json = JSONValue.decodeObject(from: data),
+               let id = json["id"]?.string,
+               let action = json["action"]?.string,
+               let type = json["type"]?.string,
                type == "request"
             { // Only send error responses for requests
                 // Create error response matching request
-                let errorResponse: [String: Any] = [
-                    "id": id,
-                    "type": "response",
-                    "category": category,
-                    "action": action,
-                    "error": error,
+                let errorResponse: [String: JSONValue] = [
+                    "id": .string(id),
+                    "type": .string("response"),
+                    "category": .string(category),
+                    "action": .string(action),
+                    "error": .string(error),
                 ]
 
-                return try JSONSerialization.data(withJSONObject: errorResponse)
+                return try JSONEncoder().encode(errorResponse)
             }
         } catch {
             self.logger.error("Failed to create error response: \(error)")

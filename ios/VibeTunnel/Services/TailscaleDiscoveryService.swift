@@ -324,23 +324,21 @@ final class TailscaleDiscoveryService {
                     var httpsUrl: String?
                     var isPublic = false
 
-                    if let healthData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let health = try? JSONDecoder().decode(HealthResponse.self, from: data) {
                         // Check for Tailscale HTTPS URL
-                        if let tailscaleUrl = healthData["tailscaleUrl"] as? String {
+                        if let tailscaleUrl = health.tailscaleUrl {
                             httpsUrl = tailscaleUrl
                             logger.info("Found Tailscale HTTPS URL: \(tailscaleUrl)")
                         }
 
                         // Check connections object for more details
-                        if let connections = healthData["connections"] as? [String: Any],
-                           let tailscale = connections["tailscale"] as? [String: Any]
-                        {
-                            if let tsHttpsUrl = tailscale["httpsUrl"] as? String {
+                        if let tailscale = health.connections?.tailscale {
+                            if let tsHttpsUrl = tailscale.httpsUrl {
                                 httpsUrl = tsHttpsUrl
                             }
 
                             // Check if Funnel (public access) is enabled
-                            if let funnel = tailscale["funnel"] as? Bool {
+                            if let funnel = tailscale.funnel {
                                 isPublic = funnel
                                 logger.info("Tailscale Funnel enabled: \(funnel)")
                             }

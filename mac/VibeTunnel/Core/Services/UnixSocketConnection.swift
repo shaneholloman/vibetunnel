@@ -303,7 +303,10 @@ final class UnixSocketConnection {
     /// Send raw dictionary message (for compatibility) with queuing
     func sendMessage(_ dict: [String: Any]) async {
         do {
-            let data = try JSONSerialization.data(withJSONObject: dict, options: [])
+            guard let value = JSONValue(any: dict) else {
+                throw UnixSocketError.sendFailed(NSError(domain: "JSONValue", code: 1))
+            }
+            let data = try JSONEncoder().encode(value)
             await self.sendDataWithErrorHandling(data)
         } catch {
             self.logger.error("Failed to serialize message: \(error)")
@@ -836,13 +839,10 @@ final class UnixSocketConnection {
             self.receiveBuffer.removeFirst(needed)
 
             // Check for keep-alive pong
-            if let msgDict = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
-               let type = msgDict["type"] as? String,
-               type == "response",
-               let category = msgDict["category"] as? String,
-               category == "system",
-               let action = msgDict["action"] as? String,
-               action == "ping"
+            if let msgDict = JSONValue.decodeObject(from: body),
+               msgDict["type"]?.string == "response",
+               msgDict["category"]?.string == "system",
+               msgDict["action"]?.string == "ping"
             {
                 self.lastPongTime = Date()
                 self.logger.debug("🏓 Received keep-alive pong")

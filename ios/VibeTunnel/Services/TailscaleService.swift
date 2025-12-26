@@ -492,8 +492,8 @@ final class TailscaleService {
                 statusError = "API error: HTTP \(httpResponse.statusCode)"
                 isRunning = false
                 logger.error("Tailscale API returned status code: \(httpResponse.statusCode)")
-                if let errorData = try? JSONSerialization.jsonObject(with: data, options: []) {
-                    logger.error("Error response: \(errorData)")
+                if let errorString = String(data: data, encoding: .utf8) {
+                    logger.error("Error response: \(errorString)")
                 }
                 return
             }

@@ -248,13 +248,17 @@ class BufferWebSocketClient: NSObject {
 
     private func handleV3Event(sessionId: String, payload: Data) {
         guard let handler = subscriptions[sessionId] else { return }
-        guard let obj = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] else {
+        struct V3Event: Decodable {
+            let kind: String
+            let exitCode: Int?
+        }
+
+        guard let event = try? JSONDecoder().decode(V3Event.self, from: payload) else {
             return
         }
 
-        if let kind = obj["kind"] as? String, kind == "exit" {
-            let code = obj["exitCode"] as? Int ?? 0
-            handler(.exit(code: code))
+        if event.kind == "exit" {
+            handler(.exit(code: event.exitCode ?? 0))
         }
     }
 

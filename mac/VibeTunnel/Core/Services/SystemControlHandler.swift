@@ -29,8 +29,8 @@ final class SystemControlHandler {
     func handleMessage(_ data: Data) async -> Data? {
         do {
             // First decode to get the action
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let action = json["action"] as? String
+            if let json = JSONValue.decodeObject(from: data),
+               let action = json["action"]?.string
             {
                 switch action {
                 case "ready":
@@ -87,20 +87,20 @@ final class SystemControlHandler {
     private func createErrorResponse(for data: Data, error: String) -> Data? {
         do {
             // Try to get request ID for proper error response
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let id = json["id"] as? String,
-               let action = json["action"] as? String
+            if let json = JSONValue.decodeObject(from: data),
+               let id = json["id"]?.string,
+               let action = json["action"]?.string
             {
                 // Create error response matching request
-                let errorResponse: [String: Any] = [
-                    "id": id,
-                    "type": "response",
-                    "category": "system",
-                    "action": action,
-                    "error": error,
+                let errorResponse: [String: JSONValue] = [
+                    "id": .string(id),
+                    "type": .string("response"),
+                    "category": .string("system"),
+                    "action": .string(action),
+                    "error": .string(error),
                 ]
 
-                return try JSONSerialization.data(withJSONObject: errorResponse)
+                return try JSONEncoder().encode(errorResponse)
             }
         } catch {
             self.logger.error("Failed to create error response: \(error)")
