@@ -10,7 +10,6 @@ import type { Session } from '../../../shared/types.js';
 import { Z_INDEX } from '../../utils/constants.js';
 import type { TerminalThemeId } from '../../utils/terminal-themes.js';
 import type { UIState } from './ui-state-manager.js';
-import './mobile-input-overlay.js';
 import './ctrl-alpha-overlay.js';
 import '../terminal-quick-keys.js';
 import '../file-browser.js';
@@ -18,12 +17,6 @@ import '../file-picker.js';
 import './width-selector.js';
 
 export interface OverlaysCallbacks {
-  // Mobile input callbacks
-  onMobileInputSendOnly: (text: string) => void;
-  onMobileInputSend: (text: string) => void;
-  onMobileInputCancel: () => void;
-  onMobileInputTextChange: (text: string) => void;
-
   // Ctrl+Alpha callbacks
   onCtrlKey: (letter: string) => void;
   onSendCtrlSequence: () => void;
@@ -92,33 +85,9 @@ export class OverlaysContainer extends LitElement {
           : ''
       }
       
-      <!-- Mobile Input Overlay -->
-      <mobile-input-overlay
-        .visible=${this.uiState.isMobile && this.uiState.showMobileInput}
-        .mobileInputText=${this.uiState.mobileInputText}
-        .keyboardHeight=${this.uiState.keyboardHeight}
-        .touchStartX=${this.uiState.touchStartX}
-        .touchStartY=${this.uiState.touchStartY}
-        .onSend=${this.callbacks.onMobileInputSendOnly}
-        .onSendWithEnter=${this.callbacks.onMobileInputSend}
-        .onCancel=${this.callbacks.onMobileInputCancel}
-        .onTextChange=${this.callbacks.onMobileInputTextChange}
-        .handleBack=${this.callbacks.handleBack}
-      ></mobile-input-overlay>
-      
       <!-- Ctrl+Alpha Overlay -->
       ${(() => {
         const visible = this.uiState.isMobile && this.uiState.showCtrlAlpha;
-        console.log(
-          '[OverlaysContainer] Ctrl+Alpha visible:',
-          visible,
-          'isMobile:',
-          this.uiState.isMobile,
-          'showCtrlAlpha:',
-          this.uiState.showCtrlAlpha,
-          'z-index should be above',
-          Z_INDEX.TERMINAL_QUICK_KEYS
-        );
         return html`
           <ctrl-alpha-overlay
             .visible=${visible}
@@ -132,30 +101,41 @@ export class OverlaysContainer extends LitElement {
         `;
       })()}
       
-      <!-- Floating Keyboard Button (for direct keyboard mode on mobile) -->
+      <!-- Floating Keyboard Button (for mobile) -->
       ${
-        this.uiState.isMobile && this.uiState.useDirectKeyboard && !this.uiState.showQuickKeys
+        this.uiState.isMobile && !this.uiState.showQuickKeys
           ? html`
             <div
-              class="keyboard-button"
+              class="keyboard-button mobile-keyboard-button"
               @pointerdown=${(e: PointerEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this.callbacks?.onKeyboardButtonClick();
               }}
-              title="Show keyboard"
+              title="Tap to show keyboard"
+              role="button"
+              aria-label="Show mobile keyboard"
             >
-              ⌨
+              <div class="flex flex-col items-center gap-1">
+                <span class="text-2xl">⌨</span>
+                <span class="text-xs font-medium opacity-90">TAP</span>
+              </div>
             </div>
           `
           : ''
       }
       
-      <!-- Terminal Quick Keys (for direct keyboard mode) -->
-      <terminal-quick-keys
-        .visible=${this.uiState.isMobile && this.uiState.useDirectKeyboard && this.uiState.showQuickKeys}
-        .onKeyPress=${this.callbacks.onQuickKeyPress}
-      ></terminal-quick-keys>
+      <!-- Terminal Quick Keys (desktop only) -->
+      ${
+        !this.uiState.isMobile
+          ? html`
+            <terminal-quick-keys
+              .visible=${this.uiState.showQuickKeys}
+              .onKeyPress=${this.callbacks.onQuickKeyPress}
+            ></terminal-quick-keys>
+          `
+          : ''
+      }
       
       <!-- File Browser Modal -->
       <file-browser

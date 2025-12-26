@@ -9,10 +9,7 @@
  * - Terminal dimensions
  */
 
-import { createLogger } from '../../utils/logger.js';
 import type { TerminalThemeId } from '../../utils/terminal-themes.js';
-
-const logger = createLogger('ui-state-manager');
 
 export interface UIState {
   // Connection state
@@ -22,9 +19,6 @@ export interface UIState {
   // Mobile states
   isMobile: boolean;
   isLandscape: boolean;
-  showMobileInput: boolean;
-  mobileInputText: string;
-  useDirectKeyboard: boolean;
   showQuickKeys: boolean;
   keyboardHeight: number;
 
@@ -73,9 +67,6 @@ export class UIStateManager {
     // Mobile states
     isMobile: false,
     isLandscape: false,
-    showMobileInput: false,
-    mobileInputText: '',
-    useDirectKeyboard: true, // Default to true
     showQuickKeys: false,
     keyboardHeight: 0,
 
@@ -141,21 +132,6 @@ export class UIStateManager {
 
   setIsLandscape(isLandscape: boolean): void {
     this.state.isLandscape = isLandscape;
-    this.callbacks?.requestUpdate();
-  }
-
-  setShowMobileInput(show: boolean): void {
-    this.state.showMobileInput = show;
-    this.callbacks?.requestUpdate();
-  }
-
-  setMobileInputText(text: string): void {
-    this.state.mobileInputText = text;
-    this.callbacks?.requestUpdate();
-  }
-
-  setUseDirectKeyboard(use: boolean): void {
-    this.state.useDirectKeyboard = use;
     this.callbacks?.requestUpdate();
   }
 
@@ -262,37 +238,8 @@ export class UIStateManager {
     this.callbacks?.requestUpdate();
   }
 
-  // Mobile input helpers
-  toggleMobileInput(): void {
-    this.state.showMobileInput = !this.state.showMobileInput;
-    this.callbacks?.requestUpdate();
-  }
-
   toggleCtrlAlpha(): void {
     this.state.showCtrlAlpha = !this.state.showCtrlAlpha;
-    this.callbacks?.requestUpdate();
-  }
-
-  toggleDirectKeyboard(): void {
-    this.state.useDirectKeyboard = !this.state.useDirectKeyboard;
-
-    // Save preference
-    try {
-      const stored = localStorage.getItem('vibetunnel_app_preferences');
-      const preferences = stored ? JSON.parse(stored) : {};
-      preferences.useDirectKeyboard = this.state.useDirectKeyboard;
-      localStorage.setItem('vibetunnel_app_preferences', JSON.stringify(preferences));
-
-      // Emit preference change event
-      window.dispatchEvent(
-        new CustomEvent('app-preferences-changed', {
-          detail: preferences,
-        })
-      );
-    } catch (error) {
-      logger.error('Failed to save direct keyboard preference', error);
-    }
-
     this.callbacks?.requestUpdate();
   }
 
@@ -301,21 +248,5 @@ export class UIStateManager {
     const isLandscape = window.matchMedia('(orientation: landscape)').matches;
     this.state.isLandscape = isLandscape;
     this.callbacks?.requestUpdate();
-  }
-
-  // Load preferences
-  loadDirectKeyboardPreference(): void {
-    try {
-      const stored = localStorage.getItem('vibetunnel_app_preferences');
-      if (stored) {
-        const preferences = JSON.parse(stored);
-        this.state.useDirectKeyboard = preferences.useDirectKeyboard ?? true; // Default to true
-      } else {
-        this.state.useDirectKeyboard = true; // Default to true when no settings exist
-      }
-    } catch (error) {
-      logger.error('Failed to load app preferences', error);
-      this.state.useDirectKeyboard = true; // Default to true on error
-    }
   }
 }

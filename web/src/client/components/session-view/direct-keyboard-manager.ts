@@ -35,15 +35,12 @@ import { ManagerEventEmitter } from './interfaces.js';
 const logger = createLogger('direct-keyboard-manager');
 
 export interface DirectKeyboardCallbacks {
-  getShowMobileInput(): boolean;
   getShowCtrlAlpha(): boolean;
   getDisableFocusManagement(): boolean;
   getVisualViewportHandler(): (() => void) | null;
   getKeyboardHeight(): number;
   setKeyboardHeight(height: number): void;
   updateShowQuickKeys(value: boolean): void;
-  toggleMobileInput(): void;
-  clearMobileInputText(): void;
   toggleCtrlAlpha(): void;
   clearCtrlSequence(): void;
 }
@@ -279,10 +276,9 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
       const finalText = compositionEvent.data || this.hiddenInput?.value || '';
 
       if (finalText) {
-        // Don't send input to terminal if mobile input overlay or Ctrl overlay is visible
-        const showMobileInput = this.callbacks?.getShowMobileInput() ?? false;
+        // Don't send input to terminal if Ctrl overlay is visible
         const showCtrlAlpha = this.callbacks?.getShowCtrlAlpha() ?? false;
-        if (!showMobileInput && !showCtrlAlpha && this.inputManager) {
+        if (!showCtrlAlpha && this.inputManager) {
           // Send the completed composition to terminal
           this.inputManager.sendInputText(finalText);
         }
@@ -305,10 +301,9 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
       }
 
       if (input.value) {
-        // Don't send input to terminal if mobile input overlay or Ctrl overlay is visible
-        const showMobileInput = this.callbacks?.getShowMobileInput() ?? false;
+        // Don't send input to terminal if Ctrl overlay is visible
         const showCtrlAlpha = this.callbacks?.getShowCtrlAlpha() ?? false;
-        if (!showMobileInput && !showCtrlAlpha && this.inputManager) {
+        if (!showCtrlAlpha && this.inputManager) {
           // Send each character to terminal (only for non-IME input)
           this.inputManager.sendInputText(input.value);
         }
@@ -319,10 +314,9 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
 
     // Handle special keys
     this.hiddenInput.addEventListener('keydown', (e) => {
-      // Don't process special keys if mobile input overlay or Ctrl overlay is visible
-      const showMobileInput = this.callbacks?.getShowMobileInput() ?? false;
+      // Don't process special keys if Ctrl overlay is visible
       const showCtrlAlpha = this.callbacks?.getShowCtrlAlpha() ?? false;
-      if (showMobileInput || showCtrlAlpha) {
+      if (showCtrlAlpha) {
         return;
       }
 
@@ -459,6 +453,10 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
     _isToggle?: boolean,
     _pasteText?: string
   ): Promise<void> => {
+    logger.log(
+      `[handleQuickKeyPress] Called with key: ${key}, isModifier: ${isModifier}, isSpecial: ${isSpecial}`
+    );
+
     if (!this.inputManager) {
       logger.error('No input manager found');
       return;
@@ -475,13 +473,11 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
       return;
     } else if (key === 'CtrlFull') {
       // Toggle the full Ctrl+Alpha overlay
-      console.log('[DirectKeyboardManager] CtrlFull pressed, toggling Ctrl+Alpha overlay');
       if (this.callbacks) {
         this.callbacks.toggleCtrlAlpha();
       }
 
       const showCtrlAlpha = this.callbacks?.getShowCtrlAlpha() ?? false;
-      console.log('[DirectKeyboardManager] showCtrlAlpha after toggle:', showCtrlAlpha);
       if (showCtrlAlpha) {
         // Keep focus retention running - we want the keyboard to stay visible
         // The Ctrl+Alpha overlay should show above the keyboard
@@ -623,9 +619,11 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
       // Send the key to terminal
       // For single character keys, send as text
       if (keyToSend.length === 1) {
+        logger.log(`[handleQuickKeyPress] Sending single character: ${keyToSend}`);
         this.inputManager.sendInputText(keyToSend);
       } else {
         // For special keys, send as input command
+        logger.log(`[handleQuickKeyPress] Sending special key: ${keyToSend.toLowerCase()}`);
         this.inputManager.sendInput(keyToSend.toLowerCase());
       }
     }
@@ -643,7 +641,6 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
   private startFocusRetention(): void {
     this.focusRetentionInterval = setInterval(() => {
       const disableFocusManagement = this.callbacks?.getDisableFocusManagement() ?? false;
-      const showMobileInput = this.callbacks?.getShowMobileInput() ?? false;
       const showCtrlAlpha = this.callbacks?.getShowCtrlAlpha() ?? false;
 
       // In keyboard mode, always maintain focus regardless of other conditions
@@ -659,7 +656,6 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
         this.showQuickKeys &&
         this.hiddenInput &&
         document.activeElement !== this.hiddenInput &&
-        !showMobileInput &&
         !showCtrlAlpha
       ) {
         logger.log('Refocusing hidden input to maintain keyboard');
@@ -951,7 +947,6 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
     // Add a slight delay before focusing
     setTimeout(() => {
       input.focus();
-      console.log('Input focused:', document.activeElement === input);
     }, 50);
 
     // On blur or enter, remove input and send text

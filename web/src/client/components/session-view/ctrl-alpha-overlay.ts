@@ -27,7 +27,6 @@ export class CtrlAlphaOverlay extends LitElement {
   }
 
   render() {
-    console.log('[CtrlAlphaOverlay] render called, visible:', this.visible);
     if (!this.visible) return null;
 
     // Render directly without modal-wrapper to debug the issue

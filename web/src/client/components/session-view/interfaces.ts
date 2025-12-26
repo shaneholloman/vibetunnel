@@ -11,8 +11,6 @@
 export interface StateCallbacks {
   getIsMobile(): boolean;
   setIsMobile(value: boolean): void;
-  getUseDirectKeyboard(): boolean;
-  setUseDirectKeyboard(value: boolean): void;
   setShowQuickKeys(value: boolean): void;
   setShowFileBrowser(value: boolean): void;
   getShowWidthSelector(): boolean;

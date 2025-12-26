@@ -36,7 +36,6 @@ import { InputManager } from './session-view/input-manager.js';
 import type { LifecycleEventManagerCallbacks } from './session-view/interfaces.js';
 import { LifecycleEventManager } from './session-view/lifecycle-event-manager.js';
 import { LoadingAnimationManager } from './session-view/loading-animation-manager.js';
-import { MobileInputManager } from './session-view/mobile-input-manager.js';
 import { SessionActionsHandler } from './session-view/session-actions-handler.js';
 import {
   type TerminalEventHandlers,
@@ -49,6 +48,7 @@ import { UIStateManager } from './session-view/ui-state-manager.js';
 // Components
 import './session-view/terminal-renderer.js';
 import './session-view/overlays-container.js';
+import './mobile-action-bar.js';
 import type { Terminal } from './terminal.js';
 
 // Extend Window interface to include our custom property
@@ -77,7 +77,6 @@ export class SessionView extends LitElement {
   // Managers
   private connectionManager!: ConnectionManager;
   private inputManager!: InputManager;
-  private mobileInputManager!: MobileInputManager;
   private directKeyboardManager!: DirectKeyboardManager;
   private terminalLifecycleManager!: TerminalLifecycleManager;
   private lifecycleEventManager!: LifecycleEventManager;
@@ -107,10 +106,6 @@ export class SessionView extends LitElement {
       getIsMobile: () => this.uiStateManager.getState().isMobile,
       setIsMobile: (value: boolean) => {
         this.uiStateManager.setIsMobile(value);
-      },
-      getUseDirectKeyboard: () => this.uiStateManager.getState().useDirectKeyboard,
-      setUseDirectKeyboard: (value: boolean) => {
-        this.uiStateManager.setUseDirectKeyboard(value);
       },
       getDirectKeyboardManager: () => ({
         getShowQuickKeys: () => this.directKeyboardManager.getShowQuickKeys(),
@@ -193,7 +188,6 @@ export class SessionView extends LitElement {
       getIsMobile: () => this.uiStateManager.getState().isMobile,
       getShowFileBrowser: () => this.uiStateManager.getState().showFileBrowser,
       getShowImagePicker: () => this.uiStateManager.getState().showImagePicker,
-      getShowMobileInput: () => this.uiStateManager.getState().showMobileInput,
       dispatchEvent: (event: Event) => this.dispatchEvent(event),
     });
 
@@ -223,9 +217,6 @@ export class SessionView extends LitElement {
       handleBack: () => this.handleBack(),
       ensureTerminalInitialized: () => this.ensureTerminalInitialized(),
     });
-
-    // Load direct keyboard preference
-    this.uiStateManager.loadDirectKeyboardPreference();
 
     // Check server status to see if Mac app is connected
     this.checkServerStatus();
@@ -297,10 +288,6 @@ export class SessionView extends LitElement {
       getTerminalElement: () => this.getTerminalElement(),
     });
 
-    // Initialize mobile input manager
-    this.mobileInputManager = new MobileInputManager(this);
-    this.mobileInputManager.setInputManager(this.inputManager);
-
     // Initialize direct keyboard manager
     this.directKeyboardManager = new DirectKeyboardManager(this.instanceId);
     this.directKeyboardManager.setInputManager(this.inputManager);
@@ -308,7 +295,6 @@ export class SessionView extends LitElement {
 
     // Set up callbacks for direct keyboard manager
     const directKeyboardCallbacks: DirectKeyboardCallbacks = {
-      getShowMobileInput: () => this.uiStateManager.getState().showMobileInput,
       getShowCtrlAlpha: () => this.uiStateManager.getState().showCtrlAlpha,
       getDisableFocusManagement: () => this.disableFocusManagement,
       getVisualViewportHandler: () => {
@@ -342,14 +328,6 @@ export class SessionView extends LitElement {
         this.requestUpdate();
         // Update terminal transform when quick keys visibility changes
         this.updateTerminalTransform();
-      },
-      toggleMobileInput: () => {
-        this.uiStateManager.toggleMobileInput();
-        this.requestUpdate();
-      },
-      clearMobileInputText: () => {
-        this.uiStateManager.setMobileInputText('');
-        this.requestUpdate();
       },
       toggleCtrlAlpha: () => {
         this.uiStateManager.toggleCtrlAlpha();
@@ -415,19 +393,7 @@ export class SessionView extends LitElement {
 
     // Session action callbacks will be provided per-call to the service
 
-    // Load direct keyboard preference (needed before lifecycle setup)
-    try {
-      const stored = localStorage.getItem('vibetunnel_app_preferences');
-      if (stored) {
-        const preferences = JSON.parse(stored);
-        this.uiStateManager.setUseDirectKeyboard(preferences.useDirectKeyboard ?? true); // Default to true for new users
-      } else {
-        this.uiStateManager.setUseDirectKeyboard(true); // Default to true when no settings exist
-      }
-    } catch (error) {
-      logger.error('Failed to load app preferences', error);
-      this.uiStateManager.setUseDirectKeyboard(true); // Default to true on error
-    }
+    // Direct keyboard mode is now always enabled (no preference needed)
 
     // Set up lifecycle (replaces the extracted lifecycle logic)
     this.lifecycleEventManager.setupLifecycle();
@@ -687,30 +653,6 @@ export class SessionView extends LitElement {
     }
   }
 
-  // Mobile input methods
-  private handleMobileInputToggle() {
-    this.mobileInputManager.handleMobileInputToggle();
-  }
-
-  // Helper methods for MobileInputManager
-  shouldUseDirectKeyboard(): boolean {
-    return this.uiStateManager.getState().useDirectKeyboard;
-  }
-
-  toggleMobileInputDisplay(): void {
-    this.uiStateManager.toggleMobileInput();
-    if (!this.uiStateManager.getState().showMobileInput) {
-      // Refresh terminal scroll position after closing mobile input
-      this.refreshTerminalAfterMobileInput();
-    }
-  }
-
-  private async handleSpecialKey(key: string) {
-    if (this.inputManager) {
-      await this.inputManager.sendInputText(key);
-    }
-  }
-
   private async handleCtrlKey(letter: string) {
     // Add to sequence instead of immediately sending
     this.uiStateManager.addCtrlSequence(letter);
@@ -757,16 +699,6 @@ export class SessionView extends LitElement {
     }
   }
 
-  private toggleDirectKeyboard() {
-    this.uiStateManager.toggleDirectKeyboard();
-
-    // If enabling direct keyboard on mobile, ensure hidden input
-    const state = this.uiStateManager.getState();
-    if (state.isMobile && state.useDirectKeyboard) {
-      this.directKeyboardManager.ensureHiddenInputVisible();
-    }
-  }
-
   private handleKeyboardButtonClick() {
     // Show quick keys immediately for visual feedback
     this.uiStateManager.setShowQuickKeys(true);
@@ -784,7 +716,7 @@ export class SessionView extends LitElement {
 
   private handleTerminalClick(e: Event) {
     const uiState = this.uiStateManager.getState();
-    if (uiState.isMobile && uiState.useDirectKeyboard) {
+    if (uiState.isMobile) {
       // Prevent the event from bubbling and default action
       e.stopPropagation();
       e.preventDefault();
@@ -821,6 +753,41 @@ export class SessionView extends LitElement {
 
     const state = this.uiStateManager.getState();
 
+    // On mobile, we don't use transforms anymore - just resize
+    if (state.isMobile) {
+      this._updateTerminalTransformTimeout = setTimeout(() => {
+        logger.log(
+          `Mobile terminal updated: quickKeys=${state.showQuickKeys}, keyboardHeight=${state.keyboardHeight}px`
+        );
+
+        // Force immediate update
+        this.requestUpdate();
+
+        // Notify terminal to resize
+        requestAnimationFrame(() => {
+          const terminal = this.getTerminalElement();
+          if (terminal) {
+            // Notify terminal of size change
+            const terminalElement = terminal as unknown as { fitTerminal?: () => void };
+            if (typeof terminalElement.fitTerminal === 'function') {
+              terminalElement.fitTerminal();
+            }
+
+            // If keyboard is visible, scroll to keep cursor visible
+            if (state.keyboardHeight > 0 || state.showQuickKeys) {
+              setTimeout(() => {
+                if ('scrollToBottom' in terminal) {
+                  terminal.scrollToBottom();
+                }
+              }, 100);
+            }
+          }
+        });
+      }, 0);
+      return;
+    }
+
+    // Desktop: Keep existing transform behavior
     this._updateTerminalTransformTimeout = setTimeout(() => {
       // Log for debugging
       logger.log(
@@ -866,18 +833,6 @@ export class SessionView extends LitElement {
     this.directKeyboardManager.focusHiddenInput();
   }
 
-  getMobileInputText(): string {
-    return this.uiStateManager.getState().mobileInputText;
-  }
-
-  clearMobileInputText(): void {
-    this.uiStateManager.setMobileInputText('');
-  }
-
-  closeMobileInput(): void {
-    this.uiStateManager.setShowMobileInput(false);
-  }
-
   shouldRefocusHiddenInput(): boolean {
     return this.directKeyboardManager.shouldRefocusHiddenInput();
   }
@@ -894,27 +849,180 @@ export class SessionView extends LitElement {
     this.directKeyboardManager.delayedRefocusHiddenInputPublic();
   }
 
-  refreshTerminalAfterMobileInput() {
-    // After closing mobile input, the viewport changes and the terminal
-    // needs to recalculate its scroll position to avoid getting stuck
-    const terminal = this.terminalLifecycleManager.getTerminal();
-    if (!terminal) return;
+  private renderQuickKeysContent(uiState: ReturnType<UIStateManager['getState']>) {
+    // Mobile: Quick keys in action bar
+    if (uiState.isMobile && uiState.showQuickKeys) {
+      return html`
+        <div class="mobile-action-keys">
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('Escape')}
+          >
+            ESC
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => {
+              this.directKeyboardManager.handleQuickKeyPress('Command', true);
+            }}
+            @touchstart=${(e: TouchEvent) => {
+              e.preventDefault();
+            }}
+            @touchend=${(e: TouchEvent) => {
+              e.preventDefault();
+              this.directKeyboardManager.handleQuickKeyPress('Command', true);
+            }}
+          >
+            ⌘
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => {
+              this.directKeyboardManager.handleQuickKeyPress('/');
+            }}
+            @touchstart=${(e: TouchEvent) => {
+              e.preventDefault();
+            }}
+            @touchend=${(e: TouchEvent) => {
+              e.preventDefault();
+              this.directKeyboardManager.handleQuickKeyPress('/');
+            }}
+          >
+            /
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('Tab')}
+          >
+            TAB
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('ArrowUp')}
+          >
+            ↑
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('ArrowDown')}
+          >
+            ↓
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('ArrowLeft')}
+          >
+            ←
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => this.directKeyboardManager.handleQuickKeyPress('ArrowRight')}
+          >
+            →
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => {
+              this.directKeyboardManager.handleQuickKeyPress('CtrlFull', false, true);
+            }}
+          >
+            CTRL
+          </button>
+          <button
+            class="mobile-action-key"
+            @click=${() => {
+              this.directKeyboardManager.handleQuickKeyPress('Done', false, true);
+            }}
+            @touchstart=${(e: TouchEvent) => {
+              e.preventDefault();
+            }}
+            @touchend=${(e: TouchEvent) => {
+              e.preventDefault();
+              this.directKeyboardManager.handleQuickKeyPress('Done', false, true);
+            }}
+          >
+            Done
+          </button>
+        </div>
+      `;
+    }
 
-    // Give the viewport time to settle after keyboard disappears
-    setTimeout(() => {
-      const currentTerminal = this.terminalLifecycleManager.getTerminal();
-      if (currentTerminal) {
-        // Force the terminal to recalculate its viewport dimensions and scroll boundaries
-        // This fixes the issue where maxScrollPixels becomes incorrect after keyboard changes
-        const terminalElement = currentTerminal as unknown as { fitTerminal?: () => void };
-        if (typeof terminalElement.fitTerminal === 'function') {
-          terminalElement.fitTerminal();
+    return '';
+  }
+
+  // Mobile Action Bar Callback Methods
+  private handleClaudeModeToggle(mode: 'plan' | 'auto-accept' | 'normal') {
+    logger.debug(`Toggling Claude mode to: ${mode}`);
+    // This would integrate with Claude Code mode switching
+    // For now, just log the action
+    this.dispatchEvent(
+      new CustomEvent('claude-mode-change', {
+        detail: { mode },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private async handleClipboardPaste() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && this.inputManager) {
+          await this.inputManager.sendInputText(text);
         }
-
-        // Then scroll to bottom to fix the position
-        currentTerminal.scrollToBottom();
       }
-    }, 300); // Wait for viewport to settle
+    } catch (error) {
+      logger.error('Failed to paste from clipboard:', error);
+    }
+  }
+
+  private handleShowClipboardHistory() {
+    // This will be handled by the mobile action bar's clipboard manager
+    logger.debug('Show clipboard history requested');
+  }
+
+  private handleShowSlashCommands() {
+    // This will be handled by the mobile action bar's slash commands modal
+    logger.debug('Show slash commands requested');
+  }
+
+  private handleExecuteSlashCommand(command: string) {
+    if (this.inputManager) {
+      this.inputManager.sendInputText(command);
+    }
+  }
+
+  private handleThemeToggle() {
+    // Dispatch theme toggle event
+    this.dispatchEvent(
+      new CustomEvent('theme-toggle', {
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private handleHideKeyboard() {
+    this.uiStateManager.setShowQuickKeys(false);
+  }
+
+  private async handleSendInput(text: string) {
+    if (this.inputManager) {
+      await this.inputManager.sendInputText(text);
+    }
+  }
+
+  private handleHapticFeedback(type: 'light' | 'medium' | 'heavy') {
+    // Implement haptic feedback for supported devices
+    if ('vibrate' in navigator) {
+      const patterns = {
+        light: [10],
+        medium: [20],
+        heavy: [50],
+      };
+      navigator.vibrate(patterns[type]);
+    }
   }
 
   render() {
@@ -945,73 +1053,145 @@ export class SessionView extends LitElement {
           outline-offset: -2px;
         }
         
-        /* Grid layout for stable touch handling */
-        .session-view-grid {
-          display: grid;
-          grid-template-areas:
-            "header"
-            "terminal"
-            "quickkeys";
-          grid-template-rows: auto 1fr auto;
-          grid-template-columns: 1fr;
-          height: 100vh;
-          height: 100dvh;
-          width: 100%;
-          max-width: 100vw;
-          position: relative;
-          background-color: rgb(var(--color-bg));
-          font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-          overflow: hidden;
-          box-sizing: border-box;
+        /* Desktop: Grid layout for stable touch handling */
+        @media (min-width: 769px) {
+          .session-view-grid {
+            display: grid;
+            grid-template-areas:
+              "header"
+              "terminal"
+              "quickkeys";
+            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 1fr;
+            height: 100vh;
+            height: 100dvh;
+            width: 100%;
+            max-width: 100vw;
+            position: relative;
+            background-color: rgb(var(--color-bg));
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+            overflow: hidden;
+            box-sizing: border-box;
+          }
+          
+          /* Adjust grid when keyboard is visible */
+          .session-view-grid[data-keyboard-visible="true"] {
+            height: calc(100vh - var(--keyboard-height, 0px) - var(--quickkeys-height, 0px));
+            height: calc(100dvh - var(--keyboard-height, 0px) - var(--quickkeys-height, 0px));
+            transition: height 0.2s ease-out;
+          }
+          
+          .session-header-area {
+            grid-area: header;
+          }
+          
+          .terminal-area {
+            grid-area: terminal;
+            position: relative;
+            overflow: hidden;
+            min-height: 0; /* Critical for grid */
+            contain: layout style paint; /* Isolate terminal updates */
+          }
+          
+          /* Desktop: Keep existing terminal behavior */
+          .terminal-area vibe-terminal,
+          .terminal-area vibe-terminal-binary {
+            height: calc(100% + 50px) !important;
+            margin-bottom: -50px !important;
+          }
+          
+          /* Desktop: Keep transform for quick keys */
+          .terminal-area[data-quickkeys-visible="true"] {
+            transform: translateY(-110px);
+            transition: transform 0.2s ease-out;
+          }
+          
+          /* Desktop: Add padding when keyboard is visible */
+          .terminal-area[data-quickkeys-visible="true"] vibe-terminal,
+          .terminal-area[data-quickkeys-visible="true"] vibe-terminal-binary {
+            padding-bottom: 70px !important;
+            box-sizing: border-box;
+          }
+          
+          .quickkeys-area {
+            grid-area: quickkeys;
+          }
+          
+          /* Overlay container - spans entire grid */
+          .overlay-container {
+            grid-area: 1 / 1 / -1 / -1;
+            pointer-events: none;
+            z-index: 20;
+            position: relative;
+          }
         }
         
-        /* Adjust grid when keyboard is visible */
-        .session-view-grid[data-keyboard-visible="true"] {
-          height: calc(100vh - var(--keyboard-height, 0px) - var(--quickkeys-height, 0px));
-          height: calc(100dvh - var(--keyboard-height, 0px) - var(--quickkeys-height, 0px));
-          transition: height 0.2s ease-out;
-        }
-        
-        .session-header-area {
-          grid-area: header;
-        }
-        
-        .terminal-area {
-          grid-area: terminal;
-          position: relative;
-          overflow: hidden;
-          min-height: 0; /* Critical for grid */
-          contain: layout style paint; /* Isolate terminal updates */
-        }
-        
-        /* Make terminal content 50px larger to prevent clipping */
-        .terminal-area vibe-terminal {
-          height: calc(100% + 50px) !important;
-          margin-bottom: -50px !important;
-        }
-        
-        /* Transform terminal up when quick keys are visible */
-        .terminal-area[data-quickkeys-visible="true"] {
-          transform: translateY(-110px);
-          transition: transform 0.2s ease-out;
-        }
-        
-        /* Add padding to terminal content when keyboard is visible */
-        .terminal-area[data-quickkeys-visible="true"] vibe-terminal {
-          padding-bottom: 70px !important;
-          box-sizing: border-box;
-        }
-        
-        .quickkeys-area {
-          grid-area: quickkeys;
-        }
-        
-        /* Overlay container - spans entire grid */
-        .overlay-container {
-          grid-area: 1 / 1 / -1 / -1;
-          pointer-events: none;
-          z-index: 20;
-          position: relative;
+        /* Mobile: Flexbox layout without transforms */
+        @media (max-width: 768px) {
+          .session-view-grid {
+            /* Use mobile-terminal-container styles */
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100vh !important;
+            height: 100dvh !important;
+            width: 100% !important;
+            position: relative !important;
+            overflow: hidden !important;
+            background-color: rgb(var(--color-bg)) !important;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+          }
+          
+          .session-header-area {
+            /* Use mobile-terminal-header styles */
+            flex-shrink: 0 !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 10 !important;
+          }
+          
+          .terminal-area {
+            /* Use mobile-terminal-content styles */
+            flex: 1 !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            position: relative !important;
+            contain: layout style paint !important;
+            /* Remove ALL transforms */
+            transform: none !important;
+            transition: none !important;
+          }
+          
+          /* Mobile: Reset terminal sizing */
+          .terminal-area vibe-terminal,
+          .terminal-area vibe-terminal-binary {
+            height: 100% !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+          }
+          
+          /* Mobile: Disable quickkeys transform */
+          .terminal-area[data-quickkeys-visible="true"] {
+            transform: none !important;
+          }
+          
+          .quickkeys-area {
+            /* Will be styled as mobile-action-bar */
+            flex-shrink: 0 !important;
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 10 !important;
+          }
+          
+          /* Mobile: Overlay positioning */
+          .overlay-container {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            pointer-events: none !important;
+            z-index: 20 !important;
+          }
         }
         
         .overlay-container > * {
@@ -1136,8 +1316,10 @@ export class SessionView extends LitElement {
                 .terminalFontSize=${uiState.terminalFontSize}
                 .terminalMaxCols=${uiState.terminalMaxCols}
                 .terminalTheme=${uiState.terminalTheme}
-                .disableClick=${uiState.isMobile && uiState.useDirectKeyboard}
+                .disableClick=${uiState.isMobile}
                 .hideScrollButton=${uiState.showQuickKeys}
+                .isMobile=${uiState.isMobile}
+                .showQuickKeys=${uiState.showQuickKeys}
                 .onTerminalClick=${this.boundHandleTerminalClick}
                 .onTerminalInput=${this.boundHandleTerminalInput}
                 .onTerminalResize=${this.boundHandleTerminalResize}
@@ -1148,93 +1330,66 @@ export class SessionView extends LitElement {
           }
         </div>
 
-        <!-- Quick Keys Area -->
-        <div class="quickkeys-area">
-          <!-- Mobile Input Controls (only show when direct keyboard is disabled) -->
-          ${
-            uiState.isMobile && !uiState.showMobileInput && !uiState.useDirectKeyboard
-              ? html`
-                <div class="p-4 bg-bg-secondary">
-                <!-- First row: Arrow keys -->
-                <div class="flex gap-2 mb-2">
-                  <button
-                    class="flex-1 font-mono px-3 py-2 text-sm transition-all cursor-pointer quick-start-btn"
-                    @click=${() => this.handleSpecialKey('arrow_up')}
-                  >
-                    <span class="text-xl">↑</span>
-                  </button>
-                  <button
-                    class="flex-1 font-mono px-3 py-2 text-sm transition-all cursor-pointer quick-start-btn"
-                    @click=${() => this.handleSpecialKey('arrow_down')}
-                  >
-                    <span class="text-xl">↓</span>
-                  </button>
-                  <button
-                    class="flex-1 font-mono px-3 py-2 text-sm transition-all cursor-pointer quick-start-btn"
-                    @click=${() => this.handleSpecialKey('arrow_left')}
-                  >
-                    <span class="text-xl">←</span>
-                  </button>
-                  <button
-                    class="flex-1 font-mono px-3 py-2 text-sm transition-all cursor-pointer quick-start-btn"
-                    @click=${() => this.handleSpecialKey('arrow_right')}
-                  >
-                    <span class="text-xl">→</span>
-                  </button>
-                </div>
+        <!-- Quick Keys Area / Mobile Action Bar -->
+        ${
+          uiState.isMobile
+            ? html`
+          <mobile-action-bar
+            .visible=${true}
+            .session=${this.session}
+            .keyboardVisible=${uiState.keyboardHeight > 0}
+            .keyboardHeight=${uiState.keyboardHeight}
+            .currentMode=${'normal'}
+            .callbacks=${(() => {
+              const callbacks = {
+              // Command palette callbacks
+              onTogglePlanMode: () => this.handleClaudeModeToggle('plan'),
+              onToggleAutoAccept: () => this.handleClaudeModeToggle('auto-accept'),
+              onToggleNormalMode: () => this.handleClaudeModeToggle('normal'),
 
-                <!-- Second row: Special keys -->
-                <div class="flex gap-2">
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${() => this.handleSpecialKey('escape')}
-                  >
-                    ESC
-                  </button>
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${() => this.handleSpecialKey('\t')}
-                  >
-                    <span class="text-xl">⇥</span>
-                  </button>
-                  <button
-                    class="flex-1 font-mono px-3 py-2 text-sm transition-all cursor-pointer quick-start-btn"
-                    @click=${this.handleMobileInputToggle}
-                  >
-                    ABC123
-                  </button>
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${() => this.fileOperationsManager.openFilePicker()}
-                    title="Upload file"
-                  >
-                    📷
-                  </button>
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${this.toggleDirectKeyboard}
-                    title="Switch to direct keyboard mode"
-                  >
-                    ⌨️
-                  </button>
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${() => this.uiStateManager.toggleCtrlAlpha()}
-                  >
-                    CTRL
-                  </button>
-                  <button
-                    class="font-mono text-sm transition-all cursor-pointer w-16 quick-start-btn"
-                    @click=${() => this.handleSpecialKey('enter')}
-                  >
-                    <span class="text-xl">⏎</span>
-                  </button>
-                  </div>
-                </div>
-              `
-              : ''
-          }
-        </div>
+              // Clipboard callbacks
+              onPasteFromClipboard: () => this.handleClipboardPaste(),
+              onShowClipboardHistory: () => this.handleShowClipboardHistory(),
+
+              // Slash commands callbacks
+              onShowSlashCommands: () => this.handleShowSlashCommands(),
+              onExecuteSlashCommand: (command: string) => this.handleExecuteSlashCommand(command),
+
+              // Session management callbacks
+              onCreateSession: () => this.dispatchEvent(new CustomEvent('navigate-to-list')), // Navigate back to create new session
+              onTerminateSession: () => this.sessionActionsHandler.handleTerminateSession(),
+              onClearSession: () => this.sessionActionsHandler.handleClearSession(),
+
+              // File operations callbacks
+              onOpenFileBrowser: () => this.fileOperationsManager.openFileBrowser(),
+              onUploadFile: () => this.fileOperationsManager.openFilePicker(),
+              onUploadImage: () => this.fileOperationsManager.selectImage(),
+
+              // Terminal settings callbacks
+              onOpenTerminalSettings: () => this.terminalSettingsManager.handleMaxWidthToggle(), // Open width selector as settings
+              onToggleTheme: () => this.handleThemeToggle(),
+
+              // Navigation callbacks
+              onNavigateBack: () => this.handleBack(),
+              onToggleSidebar: () => this.handleSidebarToggle(),
+
+              // Mobile-specific callbacks
+              onShowKeyboard: () => this.handleKeyboardButtonClick(),
+              onHideKeyboard: () => this.handleHideKeyboard(),
+              onSendInput: (text: string) => this.handleSendInput(text),
+              onTriggerHaptic: (type: 'light' | 'medium' | 'heavy') =>
+                this.handleHapticFeedback(type),
+              };
+              return callbacks;
+            })()}
+          ></mobile-action-bar>
+        `
+            : html`
+          <div class="quickkeys-area ${!uiState.showQuickKeys ? 'hidden' : ''}">
+            ${this.renderQuickKeysContent(uiState)}
+          </div>
+        `
+        }
 
         <!-- Overlay Container - All overlays go here for stable positioning -->
         <div class="overlay-container">
@@ -1242,15 +1397,6 @@ export class SessionView extends LitElement {
             .session=${this.session}
             .uiState=${uiState}
             .callbacks=${{
-              // Mobile input callbacks
-              onMobileInputSendOnly: (text: string) =>
-                this.mobileInputManager.handleMobileInputSendOnly(text),
-              onMobileInputSend: (text: string) =>
-                this.mobileInputManager.handleMobileInputSend(text),
-              onMobileInputCancel: () => this.mobileInputManager.handleMobileInputCancel(),
-              onMobileInputTextChange: (text: string) =>
-                this.uiStateManager.setMobileInputText(text),
-
               // Ctrl+Alpha callbacks
               onCtrlKey: (letter: string) => this.handleCtrlKey(letter),
               onSendCtrlSequence: () => this.handleSendCtrlSequence(),

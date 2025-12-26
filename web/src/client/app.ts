@@ -108,7 +108,6 @@ export class VibeTunnelApp extends LitElement {
     this.setupKeyboardShortcuts();
     this.setupNotificationHandlers();
     this.setupResponsiveObserver();
-    this.setupPreferences();
     // Initialize title updater
     titleManager.initAutoUpdates();
     // Listen for keyboard capture toggle events from input manager
@@ -1501,24 +1500,6 @@ export class VibeTunnelApp extends LitElement {
     // Listen for notification settings events
   }
 
-  private setupPreferences() {
-    // Load preferences from localStorage
-    try {
-      const stored = localStorage.getItem('vibetunnel_app_preferences');
-      if (stored) {
-        JSON.parse(stored); // Parse to validate JSON
-        // Preferences loaded but showLogLink removed
-      }
-    } catch (error) {
-      logger.error('Failed to load app preferences', error);
-    }
-
-    // Listen for preference changes
-    window.addEventListener('app-preferences-changed', () => {
-      // Preference changes handled but showLogLink removed
-    });
-  }
-
   private handleOpenSettings = () => {
     this.showSettings = true;
   };
@@ -1609,7 +1590,7 @@ export class VibeTunnelApp extends LitElement {
 
     // Expanded state
     if (isMobile) {
-      return `width: calc(100vw - ${SIDEBAR.MOBILE_RIGHT_MARGIN}px); z-index: ${Z_INDEX.SIDEBAR_MOBILE};`;
+      return `width: 100vw; z-index: ${Z_INDEX.SIDEBAR_MOBILE};`;
     }
 
     return `width: ${this.sidebarWidth}px;`;
@@ -1784,6 +1765,7 @@ export class VibeTunnelApp extends LitElement {
               .loading=${this.loading}
               .hideExited=${this.hideExited}
               .selectedSessionId=${this.selectedSessionId}
+              .activeSessionId=${this.selectedSessionId}
               .compactMode=${showSplitView}
               .collapsed=${this.sidebarCollapsed}
               .authClient=${authClient}

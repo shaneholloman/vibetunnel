@@ -241,7 +241,7 @@ export class SessionHeader extends LitElement {
               `
               : ''
           }
-          <div class="text-primary min-w-0 flex-1 overflow-hidden">
+          <div class="text-primary min-w-0 flex-1 overflow-hidden hidden sm:block">
             <div class="text-bright font-medium text-xs sm:text-sm min-w-0 overflow-hidden">
               <div class="flex items-center gap-1 min-w-0 overflow-hidden" @mouseenter=${this.handleMouseEnter} @mouseleave=${this.handleMouseLeave}>
                 <inline-edit

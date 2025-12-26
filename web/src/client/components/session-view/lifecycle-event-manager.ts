@@ -19,12 +19,6 @@ declare global {
   }
 }
 
-interface AppPreferences {
-  useDirectKeyboard: boolean;
-  showLogLink: boolean;
-  touchKeyboardPreference?: 'auto' | 'always' | 'never';
-}
-
 const logger = createLogger('lifecycle-event-manager');
 
 // Re-export the interface for backward compatibility
@@ -133,36 +127,6 @@ export class LifecycleEventManager extends ManagerEventEmitter {
     // Enable for touch-first OR hybrid with small screen
     return isTouchFirst || (isHybrid && isSmallScreen);
   }
-
-  handlePreferencesChanged = (e: Event): void => {
-    if (!this.callbacks) return;
-
-    const event = e as CustomEvent;
-    const preferences = event.detail as AppPreferences;
-    this.callbacks.setUseDirectKeyboard(preferences.useDirectKeyboard);
-
-    // Update touch keyboard preference if provided
-    if (preferences.touchKeyboardPreference) {
-      localStorage.setItem('touchKeyboardPreference', preferences.touchKeyboardPreference);
-      // Clear cache to force re-evaluation
-      this.touchCapabilityCache = null;
-      // Re-evaluate mobile status
-      this.updateMobileStatus();
-    }
-
-    // Update hidden input based on preference
-    const isMobile = this.callbacks.getIsMobile();
-    const useDirectKeyboard = this.callbacks.getUseDirectKeyboard();
-    const directKeyboardManager = this.callbacks.getDirectKeyboardManager();
-
-    if (isMobile && useDirectKeyboard && !directKeyboardManager.getShowQuickKeys()) {
-      directKeyboardManager.ensureHiddenInputVisible();
-    } else if (!useDirectKeyboard) {
-      // Cleanup direct keyboard manager when disabled
-      directKeyboardManager.cleanup();
-      this.callbacks.setShowQuickKeys(false);
-    }
-  };
 
   /**
    * Update mobile status based on current detection
@@ -357,9 +321,6 @@ export class LifecycleEventManager extends ManagerEventEmitter {
     logger.log('Touch keyboard enabled:', shouldEnableTouchKeyboard);
     logger.log('Device type:', window.__deviceType);
 
-    // Listen for preference changes
-    window.addEventListener('app-preferences-changed', this.handlePreferencesChanged);
-
     // Listen for window resize to handle orientation changes and viewport size changes
     window.addEventListener('resize', this.handleWindowResize);
 
@@ -446,15 +407,10 @@ export class LifecycleEventManager extends ManagerEventEmitter {
         ) {
           logger.log('Keyboard dismissed detected via viewport change');
 
-          // Check if we're using direct keyboard mode
-          const useDirectKeyboard = this.callbacks.getUseDirectKeyboard();
+          // Check if we're on mobile
           const directKeyboardManager = this.callbacks.getDirectKeyboardManager();
 
-          if (
-            useDirectKeyboard &&
-            directKeyboardManager &&
-            directKeyboardManager.getShowQuickKeys()
-          ) {
+          if (directKeyboardManager?.getShowQuickKeys()) {
             // Check if we recently entered keyboard mode (within last 2 seconds)
             // This prevents iOS keyboard animation from being interrupted
             const isRecentlyEntered =
@@ -562,9 +518,6 @@ export class LifecycleEventManager extends ManagerEventEmitter {
       this.visualViewportHandler = null;
     }
 
-    // Remove preference change listener
-    window.removeEventListener('app-preferences-changed', this.handlePreferencesChanged);
-
     // Remove window resize listener
     window.removeEventListener('resize', this.handleWindowResize);
 
@@ -582,7 +535,6 @@ export class LifecycleEventManager extends ManagerEventEmitter {
 
     // Clean up event listeners
     document.removeEventListener('click', this.handleClickOutside);
-    window.removeEventListener('app-preferences-changed', this.handlePreferencesChanged);
     window.removeEventListener('resize', this.handleWindowResize);
 
     // Remove global keyboard event listener

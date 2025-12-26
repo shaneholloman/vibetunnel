@@ -40,6 +40,7 @@ export class VibeTerminalBuffer extends LitElement {
   @state() private visibleRows = 0;
 
   private container: HTMLElement | null = null;
+  private isUpdating = false;
   private resizeObserver: ResizeObserver | null = null;
   private unsubscribe: (() => void) | null = null;
 
@@ -94,8 +95,9 @@ export class VibeTerminalBuffer extends LitElement {
       }
     }
 
-    // Update buffer content after any render
-    if (this.container && this.buffer) {
+    // Only update buffer content if the buffer itself changed
+    // This prevents redundant updates during the update cycle
+    if (changedProperties.has('buffer') && this.container && this.buffer && !this.isUpdating) {
       this.updateBufferContent();
     }
   }
@@ -240,14 +242,20 @@ export class VibeTerminalBuffer extends LitElement {
   };
 
   private scheduleBufferUpdate() {
-    // Store the latest buffer data
-    this.pendingBuffer = this.buffer;
+    // If already updating, skip
+    if (this.isUpdating) return;
 
-    // Clear any existing timeout
+    // Clear any existing timeout first
     if (this.updateTimeout) {
       clearTimeout(this.updateTimeout);
       this.updateTimeout = null;
     }
+
+    // Clear any pending buffer to avoid stale updates
+    this.pendingBuffer = null;
+
+    // Store the latest buffer data
+    this.pendingBuffer = this.buffer;
 
     // Calculate adaptive delay based on recent touch activity
     const now = Date.now();
@@ -268,17 +276,16 @@ export class VibeTerminalBuffer extends LitElement {
     // Schedule the update
     this.updateTimeout = setTimeout(() => {
       this.updateTimeout = null;
-      if (this.pendingBuffer) {
-        // Use the stored buffer state
-        const bufferToRender = this.pendingBuffer;
-        this.pendingBuffer = null;
-
-        // Temporarily swap buffers for rendering
-        const originalBuffer = this.buffer;
-        this.buffer = bufferToRender;
+      this.isUpdating = true;
+      
+      // Use the current buffer state directly
+      if (this.buffer) {
         this.updateBufferContentImmediate();
-        this.buffer = originalBuffer;
       }
+      
+      // Clear pending buffer after update
+      this.pendingBuffer = null;
+      this.isUpdating = false;
     }, delay);
   }
 

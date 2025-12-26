@@ -5,9 +5,7 @@
       "Bash(rg:*)",
       "Bash(./scripts/vtlog.sh:*)",
       "Bash(ls:*)",
-      "WebSearch",
-      "Bash(tailscale funnel:*)",
-      "Bash(tailscale status:*)"
+      "Bash(grep:*)"
     ],
     "deny": []
   },

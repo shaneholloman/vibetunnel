@@ -12,13 +12,11 @@ import { DirectKeyboardManager } from './direct-keyboard-manager.js';
 import { InputManager } from './input-manager.js';
 import { LifecycleEventManager } from './lifecycle-event-manager.js';
 import { LoadingAnimationManager } from './loading-animation-manager.js';
-import { MobileInputManager } from './mobile-input-manager.js';
 import { TerminalLifecycleManager } from './terminal-lifecycle-manager.js';
 
 export interface ManagerInstances {
   connectionManager: ConnectionManager;
   inputManager: InputManager;
-  mobileInputManager: MobileInputManager;
   directKeyboardManager: DirectKeyboardManager;
   terminalLifecycleManager: TerminalLifecycleManager;
   lifecycleEventManager: LifecycleEventManager;
@@ -46,7 +44,6 @@ export function createManagers(sessionView: SessionView): ManagerInstances {
       }
     ),
     inputManager: new InputManager(),
-    mobileInputManager: new MobileInputManager(sessionView),
     directKeyboardManager: new DirectKeyboardManager(
       `session-view-${Math.random().toString(36).substr(2, 9)}`
     ),
@@ -68,7 +65,6 @@ function wireDependencies(managers: ManagerInstances, sessionView: SessionView):
   const {
     connectionManager,
     inputManager,
-    mobileInputManager,
     directKeyboardManager,
     terminalLifecycleManager,
     lifecycleEventManager,
@@ -78,9 +74,6 @@ function wireDependencies(managers: ManagerInstances, sessionView: SessionView):
   inputManager.setCallbacks({
     requestUpdate: () => sessionView.requestUpdate(),
   });
-
-  // Set up mobile input manager
-  mobileInputManager.setInputManager(inputManager);
 
   // Set up direct keyboard manager
   directKeyboardManager.setInputManager(inputManager);
@@ -151,7 +144,6 @@ export function cleanupManagers(managers: ManagerInstances): void {
   managers.lifecycleEventManager.cleanup();
   managers.terminalLifecycleManager.cleanup();
   managers.directKeyboardManager.cleanup();
-  managers.mobileInputManager.cleanup();
   managers.inputManager.cleanup();
   managers.connectionManager.cleanupStreamConnection();
   managers.loadingAnimationManager.cleanup();

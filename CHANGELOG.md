@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### ✨ Improvements
+- Improve mobile session UI with action bar, clipboard manager, and quick keys (via [@Jerome2332](https://github.com/Jerome2332)) (#518)
+
 ### 🐛 Bug Fixes
 - Fix session creation "data couldn't be read" error on Mac app (#500)
 - Add Nix per-user profile path for cloudflared discovery (via [@bkase](https://github.com/bkase)) (#533)

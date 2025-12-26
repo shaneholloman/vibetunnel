@@ -24,7 +24,6 @@ export interface FileOperationsCallbacks {
   getIsMobile: () => boolean;
   getShowFileBrowser: () => boolean;
   getShowImagePicker: () => boolean;
-  getShowMobileInput: () => boolean;
   dispatchEvent: (event: Event) => boolean;
   requestUpdate: () => void;
 }
@@ -397,9 +396,8 @@ export class FileOperationsManager {
     // Check if paste handling should be enabled
     const showFileBrowser = this.callbacks.getShowFileBrowser();
     const showImagePicker = this.callbacks.getShowImagePicker();
-    const showMobileInput = this.callbacks.getShowMobileInput();
 
-    if (!this.shouldHandlePaste(showFileBrowser, showImagePicker, showMobileInput)) {
+    if (!this.shouldHandlePaste(showFileBrowser, showImagePicker, false)) {
       return; // Don't handle paste when modals are open
     }
 

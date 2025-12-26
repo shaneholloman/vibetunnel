@@ -32,6 +32,8 @@ export class TerminalRenderer extends LitElement {
   @property({ type: String }) terminalTheme: TerminalThemeId = 'auto';
   @property({ type: Boolean }) disableClick = false;
   @property({ type: Boolean }) hideScrollButton = false;
+  @property({ type: Boolean }) isMobile = false;
+  @property({ type: Boolean }) showQuickKeys = false;
 
   // Event handlers passed as properties
   @property({ type: Object }) onTerminalClick?: (e: Event) => void;

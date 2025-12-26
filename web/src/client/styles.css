@@ -92,6 +92,20 @@
   }
 }
 
+/* Subtle pulse animation for keyboard button visibility */
+@keyframes keyboard-button-pulse {
+  0%, 70%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 8px rgba(var(--color-primary), 0.3);
+  }
+  35% { 
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--color-primary), 0.5);
+    backdrop-filter: blur(16px) saturate(2);
+    -webkit-backdrop-filter: blur(16px) saturate(2);
+  }
+}
+
 @keyframes slideInRight {
   0% {
     transform: translateX(100%);
@@ -503,7 +517,6 @@
   .modal-backdrop {
     @apply fixed inset-0 bg-bg/80;
     z-index: 1000;
-    backdrop-filter: blur(4px);
     /* Disable all transitions and animations */
     transition: none !important;
     animation: none !important;
@@ -1641,7 +1654,7 @@ body.initial-session-load .session-flex-responsive > session-card:nth-child(n + 
 /* Position keyboard button */
 .keyboard-button {
   @apply fixed z-50;
-  /* Account for safe areas on mobile devices */
+  /* Default positioning - bottom right */
   bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
   right: calc(0.75rem + env(safe-area-inset-right, 0px));
   /* Ensure button is always touchable */
@@ -1650,6 +1663,113 @@ body.initial-session-load .session-flex-responsive > session-card:nth-child(n + 
   /* Prevent touch delays */
   -webkit-touch-callout: none;
   user-select: none;
+  
+  /* Mobile-specific enhancements */
+  min-width: 48px; /* Ensure minimum touch target size */
+  min-height: 48px;
+  
+  /* Make it more prominent with enhanced styling */
+  @apply bg-primary/30 border-primary/60 text-primary;
+  backdrop-filter: blur(16px) saturate(2);
+  -webkit-backdrop-filter: blur(16px) saturate(2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(var(--color-primary), 0.4);
+  
+  /* Add subtle pulse animation to make it more noticeable */
+  animation: keyboard-button-pulse 4s ease-in-out infinite;
+}
+
+/* Enhanced mobile keyboard button */
+.mobile-keyboard-button {
+  /* Make it larger and more prominent on mobile */
+  @apply w-20 h-16; /* Wider and taller for text */
+  border-radius: 12px; /* More rounded corners */
+  
+  /* Enhanced visual feedback */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Add stronger border for better visibility */
+  border-width: 2px;
+  
+  /* More prominent background on mobile */
+  @apply bg-primary/40 border-primary/80;
+}
+
+/* Add a glow effect on mobile for better visibility */
+@media (max-width: 768px) {
+  .mobile-keyboard-button {
+    /* Stronger shadow for mobile */
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.6), 
+      0 0 20px rgba(var(--color-primary), 0.5),
+      inset 0 0 10px rgba(var(--color-primary), 0.2);
+  }
+  
+  /* Make the pulse more noticeable on mobile */
+  @keyframes keyboard-button-pulse-mobile {
+    0%, 70%, 100% { 
+      transform: scale(1);
+      box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.6), 
+        0 0 20px rgba(var(--color-primary), 0.5),
+        inset 0 0 10px rgba(var(--color-primary), 0.2);
+    }
+    35% { 
+      transform: scale(1.08);
+      box-shadow: 
+        0 6px 24px rgba(0, 0, 0, 0.7), 
+        0 0 30px rgba(var(--color-primary), 0.7),
+        inset 0 0 15px rgba(var(--color-primary), 0.3);
+    }
+  }
+  
+  .mobile-keyboard-button {
+    animation: keyboard-button-pulse-mobile 3s ease-in-out infinite;
+  }
+}
+
+/* Mobile tap-to-focus overlay for terminal */
+.tap-to-focus-overlay {
+  @apply absolute inset-0 z-10;
+  @apply flex items-center justify-center;
+  background: rgba(var(--color-bg), 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  
+  /* Smooth transitions */
+  transition: all 0.3s ease-out;
+  
+  /* Touch optimization */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.tap-to-focus-hint {
+  @apply p-8 rounded-2xl;
+  @apply bg-bg-elevated/90 border border-border/50;
+  @apply shadow-lg;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  
+  /* Gentle breathing animation */
+  animation: tap-hint-breathe 3s ease-in-out infinite;
+}
+
+@keyframes tap-hint-breathe {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% { 
+    transform: scale(1.02);
+    opacity: 1;
+  }
+}
+
+/* Hide overlay when user starts typing */
+.tap-to-focus-overlay.keyboard-active {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Hover state for both buttons */
@@ -1665,6 +1785,44 @@ body.initial-session-load .session-flex-responsive > session-card:nth-child(n + 
 .scroll-to-bottom:active,
 .keyboard-button:active {
   @apply translate-y-0;
+}
+
+/* Responsive keyboard button positioning for mobile orientations */
+@media (max-width: 768px) and (orientation: portrait) {
+  .keyboard-button {
+    /* Center the button horizontally in portrait mode */
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    /* Move it up a bit more to ensure visibility */
+    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  
+  /* Maintain hover transform when centered */
+  .keyboard-button:hover {
+    transform: translateX(-50%) translateY(-0.125rem); /* -0.5 in Tailwind = -0.125rem */
+  }
+  
+  .keyboard-button:active {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .keyboard-button {
+    /* In landscape, move button more to the left to ensure visibility */
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+    /* Also move it up slightly */
+    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* For very small screens (like iPhone SE), make button more prominent */
+@media (max-width: 380px) {
+  .keyboard-button {
+    /* Slightly smaller but still touchable */
+    @apply w-18 h-14;
+  }
 }
 
 /* Debug overlay */
@@ -2058,3 +2216,182 @@ body.initial-session-load .session-flex-responsive > session-card:nth-child(n + 
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* ===== Phase 1: Mobile Terminal Layout ===== */
+
+/* Mobile terminal container using flexbox for stable layout */
+.mobile-terminal-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height */
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(var(--color-bg));
+}
+
+/* Mobile terminal header - always visible and sticky */
+.mobile-terminal-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: rgb(var(--color-bg-secondary));
+  border-bottom: 1px solid rgb(var(--color-border));
+  /* Add safe area support */
+  padding-top: env(safe-area-inset-top);
+  /* Ensure header is always visible even with keyboard */
+  min-height: 44px; /* iOS standard header height */
+}
+
+/* Terminal content area - takes remaining space */
+  .mobile-terminal-content {
+  flex: 1;
+  min-height: 0; /* Critical for proper flexbox behavior */
+  overflow: hidden;
+  position: relative;
+  contain: layout style paint;
+}
+
+/* Action bar for special keys - sticks to bottom */
+.mobile-action-bar {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background-color: rgb(var(--color-bg-secondary));
+  border-top: 1px solid rgb(var(--color-border));
+  /* Add safe area support */
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Smooth transitions */
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+/* Hide action bar when not needed */
+.mobile-action-bar.hidden {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Terminal viewport adjustments for mobile */
+@media (max-width: 768px) {
+  /* Ensure terminal fits within viewport */
+  .mobile-terminal-content .xterm {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Remove any transforms on terminal area */
+  .terminal-area {
+    transform: none !important;
+    transition: none !important;
+  }
+  
+  /* Disable the quickkeys transform */
+  .terminal-area[data-quickkeys-visible="true"] {
+    transform: none !important;
+  }
+  
+  /* Remove extra height and negative margins */
+  .terminal-area vibe-terminal,
+  .terminal-area vibe-terminal-binary {
+    height: 100% !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}
+
+/* Keyboard-aware container adjustments */
+.mobile-terminal-container[data-keyboard-visible="true"] {
+  /* Use CSS environment variables for keyboard height if available */
+  padding-bottom: env(keyboard-inset-height, 0);
+}
+
+/* Ensure proper touch handling */
+.mobile-terminal-content {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Action bar special keys */
+.mobile-action-key {
+  @apply px-3 py-2 mx-1 rounded-md;
+  @apply bg-bg-tertiary border border-border;
+  @apply text-text text-sm font-mono;
+  @apply transition-all duration-150;
+  @apply active:scale-95 active:bg-primary/20;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.mobile-action-key:active {
+  @apply bg-primary/20 border-primary;
+}
+
+/* Scrollable action keys container */
+.mobile-action-keys {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem;
+  gap: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mobile-action-keys::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile terminal text overflow handling */
+@media (max-width: 768px) {
+  /* Force terminal lines to wrap on mobile */
+  .terminal-line {
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    max-width: 100vw !important;
+  }
+  
+  /* Ensure terminal container respects viewport */
+  .terminal-container {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    word-wrap: break-word !important;
+  }
+  
+  /* Alternative: Scale terminal content to fit */
+  .terminal-container.scale-to-fit {
+    transform-origin: top left;
+    width: max-content;
+  }
+  
+  /* Ensure chars don't overflow their containers */
+  .terminal-char {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+}
+
+/* Landscape adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-terminal-header {
+    /* Compact header in landscape */
+    padding-top: 0;
+  }
+  
+  .mobile-action-bar {
+    /* Smaller action bar in landscape */
+    padding: 0.25rem;
+  }
+  
+  .mobile-action-key {
+    @apply py-1.5 text-xs;
+  }
+  }
