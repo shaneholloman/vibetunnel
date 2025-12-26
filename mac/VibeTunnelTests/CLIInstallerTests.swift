@@ -452,7 +452,7 @@ struct CLIInstallerTests {
         let installer = CLIInstaller(binDirectory: tempDirectory.path)
 
         let bundledPath = try #require(Bundle.main.path(forResource: "vt", ofType: nil))
-        let targetPath = tempDirectory.appendingPathComponent("vt").path
+        let targetPath = self.tempDirectory.appendingPathComponent("vt").path
         let script = try String(contentsOfFile: bundledPath, encoding: .utf8)
         try script.write(toFile: targetPath, atomically: true, encoding: .utf8)
 
