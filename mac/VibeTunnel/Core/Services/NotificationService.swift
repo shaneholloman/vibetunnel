@@ -82,6 +82,11 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
             NSClassFromString("XCTestCase") != nil
     }
 
+    private static func canUseUserNotifications() -> Bool {
+        guard !Self.isRunningTests() else { return false }
+        return Bundle.main.bundlePath.hasSuffix(".app")
+    }
+
     @MainActor
     override private init() {
         // Initialize with default preferences first
@@ -98,7 +103,7 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
 
         // Set delegate immediately on initialization
         // This ensures it's set before the app finishes launching, which is required for proper notification handling
-        if !Self.isRunningTests() {
+        if Self.canUseUserNotifications() {
             UNUserNotificationCenter.current().delegate = self
             self.logger.info("✅ NotificationService set as UNUserNotificationCenter delegate in init()")
         } else {
@@ -122,8 +127,8 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     func start() async {
         self.logger.info("🚀 NotificationService.start() called")
 
-        if Self.isRunningTests() {
-            self.logger.info("🧪 Skipping notification service start in tests")
+        if !Self.canUseUserNotifications() {
+            self.logger.info("🧪 Skipping notification service start outside app bundle")
             return
         }
 
@@ -691,6 +696,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
     // MARK: - Notification Delivery
 
     private func deliverNotification(_ content: UNNotificationContent, identifier: String) {
+        guard Self.canUseUserNotifications() else {
+            self.logger.debug("Skipping notification delivery outside app bundle")
+            return
+        }
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
         Task { @MainActor in
@@ -710,6 +719,10 @@ final class NotificationService: NSObject, @preconcurrency UNUserNotificationCen
         identifier: String,
         dismissAfter seconds: TimeInterval)
     {
+        guard Self.canUseUserNotifications() else {
+            self.logger.debug("Skipping auto-dismiss notification outside app bundle")
+            return
+        }
         self.deliverNotification(content, identifier: identifier)
 
         // Schedule automatic dismissal
