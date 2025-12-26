@@ -89,6 +89,7 @@ async function main() {
     // Ensure native modules are built (in case postinstall didn't run)
     const nativePtyDir = 'node_modules/node-pty/build/Release';
     const nativeAuthDir = 'node_modules/authenticate-pam/build/Release';
+    const nativeAuthFile = path.join(nativeAuthDir, 'authenticate_pam.node');
     
     if (!fs.existsSync(nativePtyDir)) {
       console.log('Building node-pty native module...');
@@ -104,7 +105,7 @@ async function main() {
       });
     }
     
-    if (!fs.existsSync(nativeAuthDir)) {
+    if (!fs.existsSync(nativeAuthFile)) {
       console.log('Building authenticate-pam native module...');
       execSync('npm rebuild authenticate-pam', { 
         stdio: 'inherit',

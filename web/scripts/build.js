@@ -22,7 +22,7 @@ async function build() {
 
   // Build CSS
   console.log('Building CSS...');
-  execSync('pnpm exec postcss ./src/client/styles.css -o ./public/bundle/styles.css', { stdio: 'inherit' });
+  execSync('npx --no-install postcss ./src/client/styles.css -o ./public/bundle/styles.css', { stdio: 'inherit' });
 
   // Bundle client JavaScript
   console.log('Bundling client JavaScript...');
@@ -121,6 +121,14 @@ async function build() {
   console.log('Building zig forwarder...');
   execSync('node scripts/build-fwd-zig.js', { stdio: 'inherit' });
 
+
+  const shouldBuildSea = process.env.VIBETUNNEL_BUILD_SEA === '1' || process.argv.includes('--build-sea');
+  const isLinux = process.platform === 'linux';
+  if (isLinux && !shouldBuildSea) {
+    console.log('Skipping native SEA build on Linux (set VIBETUNNEL_BUILD_SEA=1 or --build-sea to override).');
+    console.log('Build completed successfully!');
+    return;
+  }
 
   // Build native executable
   console.log('Building native executable...');
