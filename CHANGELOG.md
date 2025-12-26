@@ -5,6 +5,7 @@
 ### ✨ Improvements
 - Improve mobile session UI with action bar, clipboard manager, and quick keys (via [@Jerome2332](https://github.com/Jerome2332)) (#518)
 - Tighten macOS app icon padding to remove white edge
+- Add JSONValue coverage for Codable JSON handling
 
 ### 🐛 Bug Fixes
 - Fix session creation "data couldn't be read" error on Mac app (#500)
