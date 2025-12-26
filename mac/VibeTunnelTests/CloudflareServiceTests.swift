@@ -51,6 +51,7 @@ struct CloudflareServiceTests {
     }
 
     @Test("Cloudflared search paths include Nix profile")
+    @MainActor
     func cloudflaredSearchPathsIncludeNixProfile() {
         let expectedPath = "/etc/profiles/per-user/\(NSUserName())/bin/cloudflared"
         #expect(CloudflareService.cloudflaredSearchPaths.contains(expectedPath))
