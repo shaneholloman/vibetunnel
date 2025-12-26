@@ -37,19 +37,19 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
   if SIGN_IDENTITY="$(select_identity)"; then
     log "Using signing identity: $SIGN_IDENTITY"
   else
-    SIGN_IDENTITY="-"
-    log "No signing identity found; falling back to ad-hoc signing (-)"
+    fail "No signing identity found. Set SIGN_IDENTITY to a stable codesigning certificate."
   fi
 else
   log "Using signing identity (explicit): $SIGN_IDENTITY"
 fi
 
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+  fail "Ad-hoc signing is disabled; use a stable codesigning certificate."
+fi
+
 TIMESTAMP_FLAG="--timestamp=none"
 if [[ "${CODESIGN_TIMESTAMP:-}" == "1" ]]; then
   TIMESTAMP_FLAG="--timestamp"
-fi
-if [[ "$SIGN_IDENTITY" == "-" ]]; then
-  TIMESTAMP_FLAG="--timestamp=none"
 fi
 
 KEYCHAIN_OPTS=""
