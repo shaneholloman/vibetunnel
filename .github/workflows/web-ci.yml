@@ -170,3 +170,19 @@ jobs:
           name: server-coverage-report
           path: web/coverage/server/
           retention-days: 7
+
+  npm-build:
+    name: Linux npm build (no pnpm)
+    runs-on: blacksmith-8vcpu-ubuntu-2404-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Linux bootstrap (Node + Zig + deps)
+        run: scripts/linux-bootstrap.sh
+
+      - name: Install dependencies (npm)
+        run: npm install
+
+      - name: Build project (npm)
+        run: npm run build
