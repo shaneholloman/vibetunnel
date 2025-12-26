@@ -11,6 +11,7 @@ This guide provides comprehensive documentation for creating and publishing rele
 2) **Run the full release script**
    - `./scripts/release.sh beta <n>` or `./scripts/release.sh stable`
    - Generates appcast entries with HTML notes from `CHANGELOG.md`.
+   - Release notes helper: `./mac/scripts/generate-release-notes.sh <version> > RELEASE_NOTES.md`
 
 3) **Sparkle UX verification**
    - About → “Check for Updates…”
