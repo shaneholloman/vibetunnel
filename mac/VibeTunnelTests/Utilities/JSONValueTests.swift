@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import VibeTunnel
 
-@Suite("JSONValue Tests", .tags(.utils))
+@Suite("JSONValue Tests", .tags(.models))
 struct JSONValueTests {
     @Test("Decodes object with nested values")
     func decodeObject() throws {
