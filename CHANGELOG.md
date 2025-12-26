@@ -7,6 +7,10 @@
 - Fix mobile session header overflow for long paths/branch names (#561)
 - Restore active/idle UI state using activityStatus derived from recent input/output (#549)
 - Fix follow mode 404 when enabling follow mode from worktree UI
+- Harden Tailscale WebSocket token issuance with proxy/origin validation
+- Normalize health endpoint response shape and status for Tailscale clients
+- Fix iOS Tailscale OAuth token requests to use proper form encoding
+- Fix iOS Bonjour discovery to resolve services using the reported domain
 
 ### 🧹 Maintenance
 - Remove dynamic title mode; keep none/filter/static only
