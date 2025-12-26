@@ -2,6 +2,21 @@
 
 This guide provides comprehensive documentation for creating and publishing releases for VibeTunnel, a macOS menu bar application using Sparkle 2.x for automatic updates.
 
+## ✅ Standard Release Flow (RepoBar parity)
+1) **Version + changelog**
+   - Update `VibeTunnel/version.xcconfig` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`).
+   - Sync `../web/package.json` version.
+   - Finalize the top section in `CHANGELOG.md` (no “Unreleased”).
+
+2) **Run the full release script**
+   - `./scripts/release.sh beta <n>` or `./scripts/release.sh stable`
+   - Generates appcast entries with HTML notes from `CHANGELOG.md`.
+
+3) **Sparkle UX verification**
+   - About → “Check for Updates…”
+   - Menu only shows “Update ready, restart now?” once the update is downloaded.
+   - Sparkle dialog shows formatted release notes (not escaped HTML).
+
 ## 🚀 Quick Release Commands
 
 ### Standard Release Flow
