@@ -11,9 +11,11 @@
 - Normalize health endpoint response shape and status for Tailscale clients
 - Fix iOS Tailscale OAuth token requests to use proper form encoding
 - Fix iOS Bonjour discovery to resolve services using the reported domain
+- Fix Linux npm builds by removing pnpm-only postcss invocation and skipping SEA by default
 
 ### 🧹 Maintenance
 - Remove dynamic title mode; keep none/filter/static only
+- Make PAM auth optional and add Linux bootstrap + docs
 
 ## [1.0.0-beta.15] - 2025-08-02
 
