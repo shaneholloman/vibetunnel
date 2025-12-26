@@ -10,6 +10,7 @@ import SwiftUI
 struct SessionRow: View {
     let session: (key: String, value: ServerSessionInfo)
     let isHovered: Bool
+    let isActive: Bool
     let isFocused: Bool
 
     @Environment(\.openWindow)
@@ -53,14 +54,14 @@ struct SessionRow: View {
 
     var content: some View {
         HStack(spacing: 8) {
-            // Status indicator with subtle glow
+            // Activity indicator with subtle glow
             ZStack {
                 Circle()
-                    .fill(self.statusColor.opacity(0.3))
+                    .fill(self.activityColor.opacity(0.3))
                     .frame(width: 8, height: 8)
                     .blur(radius: 2)
                 Circle()
-                    .fill(self.statusColor)
+                    .fill(self.activityColor)
                     .frame(width: 4, height: 4)
             }
 
@@ -470,8 +471,8 @@ struct SessionRow: View {
         return path
     }
 
-    private var statusColor: Color {
-        self.session.value.isRunning
+    private var activityColor: Color {
+        self.isActive
             ? AppColors.Fallback.activityIndicator(for: self.colorScheme)
             : AppColors.Fallback.gitClean(for: self.colorScheme)
     }

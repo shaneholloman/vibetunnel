@@ -141,7 +141,6 @@ vt -S ls -la
 vt --title-mode none     # No title management
 vt --title-mode filter   # Block all title changes
 vt --title-mode static   # Show directory and command
-vt --title-mode dynamic  # Show directory, command, and activity
 
 # Verbosity control
 vt -q npm test          # Quiet mode (errors only)

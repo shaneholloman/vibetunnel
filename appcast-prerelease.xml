@@ -767,8 +767,8 @@
 
 <p><strong>Comprehensive Terminal Title Management</strong></p>
 <ul>
-<li><strong>Dynamic, context-aware terminal titles</strong> - Terminal windows display your current directory, running command, and live activity status.</li>
-<li><strong>Choose your title mode</strong> - Select between static titles (path + command) or dynamic titles that include real-time activity indicators.</li>
+                <li><strong>Context-aware terminal titles</strong> - Terminal windows display your current directory, running command, and live activity status.</li>
+<li><strong>Choose your title mode</strong> - Select between static titles (path + command), filter, or none.</li>
 <li><strong>Automatic directory tracking</strong> - Terminal titles update automatically when you change directories with <code>cd</code> commands.</li>
 <li><strong>Session name integration</strong> - Custom session names are reflected in terminal titles for better organization.</li>
 </ul>

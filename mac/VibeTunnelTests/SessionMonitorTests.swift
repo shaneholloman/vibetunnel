@@ -190,10 +190,7 @@ final class SessionMonitorTests {
             "lastModified": "2025-01-01T10:05:00.000Z",
             "activityStatus": {
                 "isActive": true,
-                "specificStatus": {
-                    "app": "shell",
-                    "status": "busy"
-                }
+                "lastActivityAt": "2025-01-01T10:05:00.000Z"
             }
         }
         """
@@ -202,8 +199,7 @@ final class SessionMonitorTests {
         let session = try JSONDecoder().decode(ServerSessionInfo.self, from: data)
 
         #expect(session.activityStatus?.isActive == true)
-        #expect(session.activityStatus?.specificStatus?.app == "shell")
-        #expect(session.activityStatus?.specificStatus?.status == "busy")
+        #expect(session.activityStatus?.lastActivityAt == "2025-01-01T10:05:00.000Z")
         #expect(session.isActivityActive == true)
     }
 
@@ -220,11 +216,7 @@ final class SessionMonitorTests {
             "lastModified": "2025-01-01T10:05:00.000Z",
             "active": true,
             "activityStatus": {
-                "isActive": false,
-                "specificStatus": {
-                    "app": "shell",
-                    "status": "busy"
-                }
+                "isActive": false
             }
         }
         """

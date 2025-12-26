@@ -318,7 +318,7 @@ describe.skip('Follow Mode End-to-End Tests', () => {
           command: ['bash'],
           workingDir: testRepoPath,
           name: 'Dev Session',
-          titleMode: 'dynamic',
+          titleMode: 'static',
         });
 
       expect(createResponse.status).toBe(200);

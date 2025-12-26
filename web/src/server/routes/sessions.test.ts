@@ -627,7 +627,7 @@ describe('sessions routes', () => {
           command: ['zsh'],
           workingDir: '/test/dir',
           spawn_terminal: true,
-          titleMode: 'dynamic',
+          titleMode: 'static',
         },
       } as Request;
 
@@ -982,7 +982,7 @@ describe('sessions routes', () => {
           spawn_terminal: true,
           cols: 80,
           rows: 24,
-          titleMode: 'dynamic',
+          titleMode: 'static',
         },
       } as Request;
 
@@ -1007,7 +1007,7 @@ describe('sessions routes', () => {
         spawn_terminal: true,
         cols: 80,
         rows: 24,
-        titleMode: 'dynamic',
+        titleMode: 'static',
         // remoteId should be excluded to prevent recursion
       });
       expect(requestBody.remoteId).toBeUndefined();

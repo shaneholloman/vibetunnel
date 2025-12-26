@@ -45,13 +45,15 @@ vi.mock('../websocket/control-unix-handler.js', () => ({
   },
 }));
 
-// Import after mocks are set up
-const { createWorktreeRoutes } = await import('./worktrees.js');
+let createWorktreeRoutes: typeof import('./worktrees.js').createWorktreeRoutes;
 
 describe('Worktree Routes', () => {
   let app: express.Application;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ createWorktreeRoutes } = await import('./worktrees.js'));
+
     app = express();
     app.use(express.json());
     app.use('/api', createWorktreeRoutes());

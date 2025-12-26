@@ -143,7 +143,7 @@ final class SessionService {
         command: [String],
         workingDir: String,
         name: String? = nil,
-        titleMode: String = "dynamic",
+        titleMode: String = "static",
         spawnTerminal: Bool = false,
         cols: Int = 120,
         rows: Int = 30,

@@ -40,6 +40,7 @@ import { WriteQueue } from '../utils/write-queue.js';
 import { VERSION } from '../version.js';
 import { controlUnixHandler } from '../websocket/control-unix-handler.js';
 import { AsciinemaWriter } from './asciinema-writer.js';
+import { computeActivityStatus } from './activity-status.js';
 import { FishHandler } from './fish-handler.js';
 import { ProcessUtils } from './process-utils.js';
 import { SessionManager } from './session-manager.js';
@@ -105,7 +106,7 @@ const SHELL_COMMANDS = new Set(['cd', 'ls', 'pwd', 'echo', 'export', 'alias', 'u
  *     workingDir: '/home/user',
  *     cols: 80,
  *     rows: 24,
- *     titleMode: TitleMode.DYNAMIC
+ *     titleMode: TitleMode.STATIC
  *   }
  * );
  *
@@ -124,6 +125,7 @@ export class PtyManager extends EventEmitter {
   private sessionManager: SessionManager;
   private defaultTerm = 'xterm-256color';
   private inputSocketClients = new Map<string, net.Socket>(); // Cache socket connections
+  private lastInputTimestamps = new Map<string, number>();
   private lastTerminalSize: { cols: number; rows: number } | null = null;
   private resizeEventListeners: Array<() => void> = [];
   private sessionResizeSources = new Map<
@@ -625,7 +627,7 @@ export class PtyManager extends EventEmitter {
     const inputQueue = new WriteQueue();
     session.inputQueue = inputQueue;
 
-    // Setup periodic title updates for static/dynamic (dynamic is legacy alias)
+    // Setup periodic title updates for static titles
     if (
       session.titleMode !== TitleMode.NONE &&
       session.titleMode !== TitleMode.FILTER &&
@@ -645,6 +647,9 @@ export class PtyManager extends EventEmitter {
       if (this.sessionMonitor) {
         this.sessionMonitor.trackPtyOutput(session.id, data);
       }
+
+      // Track output activity for active/idle detection
+      session.lastOutputTimestamp = Date.now();
 
       // If title mode is not NONE, filter out any title sequences the process might
       // have written to the stream.
@@ -754,10 +759,7 @@ export class PtyManager extends EventEmitter {
     });
 
     // Mark for initial title update
-    if (
-      forwardToStdout &&
-      (session.titleMode === TitleMode.STATIC || session.titleMode === TitleMode.DYNAMIC)
-    ) {
+    if (forwardToStdout && session.titleMode === TitleMode.STATIC) {
       this.markTitleUpdateNeeded(session);
       session.initialTitleSent = true;
       logger.debug(`Marked initial title update for session ${session.id}`);
@@ -885,10 +887,7 @@ export class PtyManager extends EventEmitter {
             this.trackAndEmit('sessionNameChanged', session.id, updatedInfo.name);
 
             // Update title if needed for external terminals
-            if (
-              session.isExternalTerminal &&
-              (session.titleMode === TitleMode.STATIC || session.titleMode === TitleMode.DYNAMIC)
-            ) {
+            if (session.isExternalTerminal && session.titleMode === TitleMode.STATIC) {
               this.markTitleUpdateNeeded(session);
             }
           }
@@ -917,6 +916,10 @@ export class PtyManager extends EventEmitter {
         case MessageType.STDIN_DATA: {
           const text = data as string;
           if (session.ptyProcess && session.inputQueue) {
+            const inputTimestamp = Date.now();
+            session.lastInputTimestamp = inputTimestamp;
+            this.lastInputTimestamps.set(session.id, inputTimestamp);
+
             // Queue input write to prevent race conditions
             session.inputQueue.enqueue(() => {
               if (session.ptyProcess) {
@@ -1054,6 +1057,10 @@ export class PtyManager extends EventEmitter {
       // If we have an in-memory session with active PTY, use it
       const memorySession = this.sessions.get(sessionId);
       if (memorySession?.ptyProcess && memorySession.inputQueue) {
+        const inputTimestamp = Date.now();
+        memorySession.lastInputTimestamp = inputTimestamp;
+        this.lastInputTimestamps.set(sessionId, inputTimestamp);
+
         // Queue input write to prevent race conditions
         memorySession.inputQueue.enqueue(() => {
           if (memorySession.ptyProcess) {
@@ -1062,11 +1069,7 @@ export class PtyManager extends EventEmitter {
           memorySession.asciinemaWriter?.writeInput(dataToSend);
 
           // Track directory changes for title modes that need it
-          if (
-            (memorySession.titleMode === TitleMode.STATIC ||
-              memorySession.titleMode === TitleMode.DYNAMIC) &&
-            input.text
-          ) {
+          if (memorySession.titleMode === TitleMode.STATIC && input.text) {
             const newDir = extractCdDirectory(
               input.text,
               memorySession.currentWorkingDir || memorySession.sessionInfo.workingDir
@@ -1119,6 +1122,7 @@ export class PtyManager extends EventEmitter {
         }
 
         if (socketClient && !socketClient.destroyed) {
+          this.lastInputTimestamps.set(sessionId, Date.now());
           // Send stdin data using framed message protocol
           const message = frameMessage(MessageType.STDIN_DATA, dataToSend);
           const canWrite = socketClient.write(message);
@@ -1628,7 +1632,24 @@ export class PtyManager extends EventEmitter {
     }
 
     // Get all sessions from storage
-    return this.sessionManager.listSessions();
+    const now = Date.now();
+    return this.sessionManager.listSessions().map((session) => {
+      const activeSession = this.sessions.get(session.id);
+      const activityStatus = computeActivityStatus({
+        status: session.status,
+        lastOutputTimestamp: activeSession?.lastOutputTimestamp,
+        lastInputTimestamp:
+          activeSession?.lastInputTimestamp ?? this.lastInputTimestamps.get(session.id),
+        lastModified: session.lastModified,
+        startedAt: session.startedAt,
+        now,
+      });
+
+      return {
+        ...session,
+        activityStatus,
+      };
+    });
   }
 
   /**
@@ -1649,6 +1670,8 @@ export class PtyManager extends EventEmitter {
       return null;
     }
 
+    const activeSession = this.sessions.get(sessionId);
+
     // Create Session object with the id field
     const session: Session = {
       ...sessionInfo,
@@ -1660,6 +1683,15 @@ export class PtyManager extends EventEmitter {
       const lastModified = fs.statSync(paths.stdoutPath).mtime.toISOString();
       session.lastModified = lastModified;
     }
+
+    session.activityStatus = computeActivityStatus({
+      status: session.status,
+      lastOutputTimestamp: activeSession?.lastOutputTimestamp,
+      lastInputTimestamp:
+        activeSession?.lastInputTimestamp ?? this.lastInputTimestamps.get(sessionId),
+      lastModified: session.lastModified,
+      startedAt: session.startedAt,
+    });
 
     logger.debug(`[PtyManager] Found session: ${JSON.stringify(session)}`);
     return session;
@@ -1689,6 +1721,8 @@ export class PtyManager extends EventEmitter {
       socket.destroy();
       this.inputSocketClients.delete(sessionId);
     }
+
+    this.lastInputTimestamps.delete(sessionId);
   }
 
   /**
@@ -1810,8 +1844,9 @@ export class PtyManager extends EventEmitter {
   private cleanupSessionResources(session: PtySession): void {
     // Clean up resize tracking
     this.sessionResizeSources.delete(session.id);
+    this.lastInputTimestamps.delete(session.id);
 
-    // Clean up title update interval for static/dynamic mode
+    // Clean up title update interval for static mode
     if (session.titleUpdateInterval) {
       clearInterval(session.titleUpdateInterval);
       session.titleUpdateInterval = undefined;
@@ -1926,7 +1961,7 @@ export class PtyManager extends EventEmitter {
         session.sessionInfo.name || 'VibeTunnel'
       );
     } else {
-      // For STATIC and DYNAMIC modes, use the standard generation logic
+      // For STATIC mode, use the standard generation logic
       newTitle = this.generateTerminalTitle(session);
     }
 
@@ -2085,7 +2120,7 @@ export class PtyManager extends EventEmitter {
       command: session.sessionInfo.command,
     });
 
-    if (session.titleMode === TitleMode.STATIC || session.titleMode === TitleMode.DYNAMIC) {
+    if (session.titleMode === TitleMode.STATIC) {
       return generateTitleSequence(
         currentDir,
         session.sessionInfo.command,

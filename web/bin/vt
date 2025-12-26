@@ -305,7 +305,7 @@ EXAMPLES:
 OPTIONS:
     --shell, -i            Launch current shell (equivalent to vt $SHELL)
     --no-shell-wrap, -S    Execute command directly without shell wrapper
-    --title-mode <mode>    Terminal title mode (none, filter, static, dynamic)
+    --title-mode <mode>    Terminal title mode (none, filter, static)
                           Default: none
     --quiet, -q            Quiet mode - only show errors
     --verbose, -v          Verbose mode - show more information
@@ -317,7 +317,6 @@ TITLE MODES:
     none       No title management - apps control their own titles
     filter     Block all title changes from applications  
     static     Show working directory and command in title
-    dynamic    Legacy alias of static (no activity)
 
 VERBOSITY:
     By default, only errors are shown. Use verbosity flags to control output:

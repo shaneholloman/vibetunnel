@@ -16,10 +16,6 @@ describe('title-mode-utils', () => {
       expect(getTitleModeDescription(TitleMode.STATIC)).toBe('Shows path and command');
     });
 
-    it('should return correct description for DYNAMIC mode', () => {
-      expect(getTitleModeDescription(TitleMode.DYNAMIC)).toBe('Legacy alias of static');
-    });
-
     it('should return empty string for unknown mode', () => {
       // @ts-expect-error Testing invalid input
       expect(getTitleModeDescription('UNKNOWN')).toBe('');
@@ -46,10 +42,6 @@ describe('title-mode-utils', () => {
 
     it('should return correct display name for STATIC mode', () => {
       expect(getTitleModeDisplayName(TitleMode.STATIC)).toBe('Static');
-    });
-
-    it('should return correct display name for DYNAMIC mode', () => {
-      expect(getTitleModeDisplayName(TitleMode.DYNAMIC)).toBe('Dynamic (legacy)');
     });
 
     it('should return the input value for unknown mode', () => {

@@ -52,13 +52,7 @@ struct ServerSessionInfo: Codable {
 /// Activity status for a session.
 struct SessionActivityStatus: Codable {
     let isActive: Bool
-    let specificStatus: SessionSpecificStatus?
-}
-
-/// App-specific activity status for a session.
-struct SessionSpecificStatus: Codable {
-    let app: String
-    let status: String
+    let lastActivityAt: String?
 }
 
 /// Lightweight session monitor that fetches terminal sessions on-demand.

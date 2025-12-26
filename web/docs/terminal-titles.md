@@ -1,10 +1,10 @@
 # Terminal Title Management in VibeTunnel
 
-VibeTunnel provides terminal title management with four modes; Dynamic is a legacy alias of Static (no activity tracking).
+VibeTunnel provides terminal title management with three modes.
 
 ## Title Modes
 
-VibeTunnel offers four terminal title management modes:
+VibeTunnel offers three terminal title management modes:
 
 ### 1. None Mode (Default)
 - **Behavior**: No title management - applications control their own titles
@@ -26,11 +26,6 @@ VibeTunnel offers four terminal title management modes:
   - `~/Projects/app — npm — Dev Server`
 - **CLI**: `--title-mode static`
 
-### 4. Dynamic Mode (Legacy)
-- **Behavior**: Alias of Static mode (no activity tracking)
-- **Use case**: Backward compatibility with existing scripts/configs
-- **CLI**: `--title-mode dynamic`
-
 ## Using Title Modes
 
 ### Web Interface
@@ -42,7 +37,6 @@ Terminal Title Mode: [Static ▼]
   - None - No title management
   - Filter - Block title changes
   - Static - Show path & command
-  - Dynamic (legacy) - Same as Static
 ```
 
 ### Command Line (`vibetunnel-fwd`)
@@ -51,7 +45,6 @@ Terminal Title Mode: [Static ▼]
 # Explicitly set title mode
 vibetunnel-fwd --title-mode static bash
 vibetunnel-fwd --title-mode filter vim
-vibetunnel-fwd --title-mode dynamic python
 
 # Using environment variable
 VIBETUNNEL_TITLE_MODE=static vibetunnel-fwd zsh
@@ -67,7 +60,7 @@ ESC ] 2 ; <title> BEL
 ```
 
 - **Filter mode**: Removes all OSC 0, 1, and 2 sequences
-- **Static/Dynamic modes**: Filter app sequences and inject VibeTunnel titles
+- **Static mode**: Filter app sequences and inject VibeTunnel titles
 - **Title injection**: Smart detection of shell prompts for natural updates
 
 ## Use Cases
@@ -120,7 +113,7 @@ Tab 4: ~/myapp — vim — Editor
 
 ### Limitations
 
-**Directory Tracking** (Static/Dynamic modes):
+**Directory Tracking** (Static mode):
 - Only tracks direct `cd` commands
 - Doesn't track: `pushd`/`popd`, aliases, subshells
 - `cd -` (previous directory) not supported

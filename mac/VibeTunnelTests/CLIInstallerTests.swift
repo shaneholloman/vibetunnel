@@ -431,7 +431,7 @@ struct CLIInstallerTests {
             fi
         done
         VIBETUNNEL_BIN="$APP_PATH/Contents/Resources/vibetunnel"
-        TITLE_MODE_ARGS="--title-mode dynamic"
+        TITLE_MODE_ARGS="--title-mode static"
         exec "$VIBETUNNEL_BIN" fwd $TITLE_MODE_ARGS "$@"
         """
 

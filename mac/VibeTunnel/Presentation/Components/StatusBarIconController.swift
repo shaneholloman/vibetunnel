@@ -31,7 +31,13 @@ final class StatusBarIconController {
 
         // Update session count display
         let sessions = sessionMonitor.sessions.values.filter(\.isRunning)
-        let indicator = self.formatSessionIndicator(count: sessions.count)
+        let activeSessions = sessions.filter(\.isActivityActive)
+
+        let activeCount = activeSessions.count
+        let totalCount = sessions.count
+        let idleCount = totalCount - activeCount
+
+        let indicator = self.formatSessionIndicator(activeCount: activeCount, idleCount: idleCount)
         button.title = indicator.isEmpty ? "" : " " + indicator
     }
 
@@ -58,10 +64,20 @@ final class StatusBarIconController {
     }
 
     /// Formats the session count indicator with a minimalist style.
-    /// - Parameter count: The number of running sessions.
-    /// - Returns: A formatted string representing the session count.
-    private func formatSessionIndicator(count: Int) -> String {
-        guard count > 0 else { return "" }
-        return String(count)
+    /// - Parameters:
+    ///   - activeCount: The number of active sessions.
+    ///   - idleCount: The number of idle sessions.
+    /// - Returns: A formatted string representing the session counts.
+    private func formatSessionIndicator(activeCount: Int, idleCount: Int) -> String {
+        let totalCount = activeCount + idleCount
+        guard totalCount > 0 else { return "" }
+
+        if activeCount == 0 {
+            return String(totalCount)
+        } else if activeCount == totalCount {
+            return "● \(activeCount)"
+        } else {
+            return "\(activeCount) | \(idleCount)"
+        }
     }
 }

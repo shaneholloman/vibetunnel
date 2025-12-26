@@ -8,7 +8,7 @@
  * ## Main Features
  * - Create terminal sessions with custom commands and working directories
  * - Configure terminal dimensions (cols/rows) for proper rendering
- * - Set title management modes (none, filter, static, dynamic alias)
+ * - Set title management modes (none, filter, static)
  * - Integrate with Git repositories for branch-aware sessions
  * - Support for both local and remote session creation (in HQ mode)
  *
@@ -138,8 +138,7 @@ export class SessionService {
    * **Title Modes:**
    * - `none`: No title management, apps control the title
    * - `filter`: Block all title changes from applications
-   * - `static`: Fixed title format: "path — command — session"
-   * - `dynamic`: Legacy alias of `static`
+ * - `static`: Fixed title format: "path — command — session"
    *
    * @param sessionData - The session configuration
    * @returns Promise resolving to the created session details

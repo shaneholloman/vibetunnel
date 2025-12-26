@@ -22,7 +22,6 @@ const TitleMode = enum {
     none,
     filter,
     static,
-    dynamic,
 };
 
 const Options = struct {
@@ -194,10 +193,7 @@ pub fn main() !void {
         return error.InvalidArguments;
     }
 
-    var title_mode = options.title_mode;
-    if (title_mode == .none and containsClaude(command)) {
-        title_mode = .dynamic;
-    }
+    const title_mode = options.title_mode;
 
     const cwd = try std.process.getCwdAlloc(allocator);
 
@@ -321,7 +317,7 @@ pub fn main() !void {
         .last_rows = initial_rows,
     };
 
-    if (title_mode == .static or title_mode == .dynamic) {
+    if (title_mode == .static) {
         updateLocalTitle(&ctx, session_name) catch {};
     }
 
@@ -456,14 +452,13 @@ fn showUsage() void {
     const out = std.fs.File.stdout().deprecatedWriter();
     _ = out.writeAll("VibeTunnel Forward (vibetunnel-fwd)\n\n") catch {};
     _ = out.writeAll("Usage:\n  vibetunnel-fwd [--session-id <id>] [--title-mode <mode>] [--verbosity <level>] <command> [args...]\n\n") catch {};
-    _ = out.writeAll("Options:\n  --session-id <id>       Use a pre-generated session ID\n  --title-mode <mode>     none, filter, static, dynamic\n  --update-title <title>  Update session title and exit (requires --session-id)\n  --verbosity <level>     silent, error, warn, info, verbose, debug\n  --log-file <path>       Override default log file path\n  -q/-v/-vv/-vvv          Quick verbosity\n") catch {};
+    _ = out.writeAll("Options:\n  --session-id <id>       Use a pre-generated session ID\n  --title-mode <mode>     none, filter, static\n  --update-title <title>  Update session title and exit (requires --session-id)\n  --verbosity <level>     silent, error, warn, info, verbose, debug\n  --log-file <path>       Override default log file path\n  -q/-v/-vv/-vvv          Quick verbosity\n") catch {};
 }
 
 fn parseTitleMode(value: []const u8) ?TitleMode {
     if (std.ascii.eqlIgnoreCase(value, "none")) return .none;
     if (std.ascii.eqlIgnoreCase(value, "filter")) return .filter;
     if (std.ascii.eqlIgnoreCase(value, "static")) return .static;
-    if (std.ascii.eqlIgnoreCase(value, "dynamic")) return .dynamic;
     return null;
 }
 
@@ -471,29 +466,6 @@ fn isTruthy(value: []const u8) bool {
     return std.ascii.eqlIgnoreCase(value, "1") or std.ascii.eqlIgnoreCase(value, "true");
 }
 
-fn containsClaude(command: []const []const u8) bool {
-    for (command) |arg| {
-        if (containsIgnoreCase(arg, "claude")) return true;
-    }
-    return false;
-}
-
-fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
-    if (needle.len == 0 or haystack.len < needle.len) return false;
-    var i: usize = 0;
-    while (i + needle.len <= haystack.len) : (i += 1) {
-        var matched = true;
-        var j: usize = 0;
-        while (j < needle.len) : (j += 1) {
-            if (std.ascii.toLower(haystack[i + j]) != std.ascii.toLower(needle[j])) {
-                matched = false;
-                break;
-            }
-        }
-        if (matched) return true;
-    }
-    return false;
-}
 
 fn getHome() []const u8 {
     if (std.posix.getenv("HOME")) |val| return std.mem.sliceTo(val, 0);
@@ -690,8 +662,7 @@ fn resizePty(ctx: *SessionContext, cols: u16, rows: u16) void {
 }
 
 fn updateLocalTitle(ctx: *SessionContext, name: []const u8) !void {
-    const mode = if (ctx.title_mode == .dynamic) .static else ctx.title_mode;
-    const seq = if (mode == .none or mode == .filter)
+    const seq = if (ctx.title_mode == .none or ctx.title_mode == .filter)
         try std.fmt.allocPrint(ctx.allocator, "\x1b]2;{s}\x07", .{name})
     else
         try title_mod.generateTitleSequence(ctx.allocator, ctx.cwd, ctx.command, name, ctx.home);

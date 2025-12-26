@@ -4,7 +4,7 @@
 - Per-process Zig forwarder replaces Node `fwd` path; minimal latency + RSS.
 - Unix/macOS only; no daemon.
 - Node web server stays optional; consumes same session files + IPC.
-- No Claude activity detection feature (removed).
+- No app-specific (Claude) activity detection; generic active/idle only.
 
 ## Non-Goals
 - Windows support.
@@ -15,7 +15,7 @@
 - `vt` wrapper → `vibetunnel-fwd` (zig) → PTY + stdout + ipc.sock + session.json.
 - Writes `~/.vibetunnel/control/<id>/session.json` + `stdout` (asciinema v2).
 - IPC via `ipc.sock` with framed protocol (stdin/resize/kill/update-title).
-- Dynamic title mode is legacy alias of static (no activity tracking).
+- Server derives session activity from recent input/output timestamps (UI active/idle).
 
 ## Target Architecture (per-process)
 ```
@@ -35,10 +35,9 @@ vt -> vibetunnel-fwd (zig) -> PTY + stdout file + ipc.sock + session.json
 
 ## Claude Activity Detection Removal (explicit)
 Done:
-- Removed `ActivityDetector` and `claude-turn` event path.
+- Removed `claude-turn` event path + app-specific status updates.
 - Removed config toggle + UI setting + push notification type.
-- Title mode `dynamic` is alias of `static` (no activity).
-- Deleted tests tied to `claude-turn` and activity detection.
+- Generic active/idle derived from input/output activity (no Claude-specific status).
 
 ## Refactor Phases
 
@@ -86,7 +85,6 @@ Done:
 - `none`: pass through, no title updates.
 - `filter`: strip OSC title sequences from output before writing.
 - `static`: set title on start + on `update-title`.
-- `dynamic`: alias `static`.
 - Keep `vt title` semantics via `--update-title` client path.
 
 ### Phase 5: Integration + Switch
@@ -98,7 +96,6 @@ Done:
 
 ### Phase 6: Cleanup (post-forwarder)
 - Ensure STATUS_UPDATE is ignored end-to-end.
-- Keep docs + tests aligned with legacy dynamic title mode.
 
 ## Test Plan
 - Zig unit tests: frame parser, asciinema writer, PTY resize.
@@ -123,5 +120,4 @@ Done:
 
 ## Open Questions
 - Final binary name + path?
-- Keep `dynamic` title mode exposed?
 - Pruning detection parity now or later?

@@ -13,8 +13,6 @@ export function getTitleModeDescription(titleMode: TitleMode): string {
       return 'Blocks all title changes';
     case TitleMode.STATIC:
       return 'Shows path and command';
-    case TitleMode.DYNAMIC:
-      return 'Legacy alias of static';
     default:
       return '';
   }
@@ -33,8 +31,6 @@ export function getTitleModeDisplayName(titleMode: TitleMode): string {
       return 'Filter';
     case TitleMode.STATIC:
       return 'Static';
-    case TitleMode.DYNAMIC:
-      return 'Dynamic (legacy)';
     default:
       return titleMode;
   }

@@ -37,14 +37,12 @@ enum TitleMode: String, CaseIterable {
     case none
     case filter
     case `static`
-    case dynamic
 
     var displayName: String {
         switch self {
         case .none: "None"
         case .filter: "Filter"
         case .static: "Static"
-        case .dynamic: "Dynamic"
         }
     }
 }

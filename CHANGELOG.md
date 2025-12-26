@@ -5,7 +5,11 @@
 ### 🐛 Bug Fixes
 - Fix session creation "data couldn't be read" error on Mac app (#500)
 - Fix mobile session header overflow for long paths/branch names (#561)
-- Fix Mac session activity detection to use activityStatus.isActive (#549)
+- Restore active/idle UI state using activityStatus derived from recent input/output (#549)
+- Fix follow mode 404 when enabling follow mode from worktree UI
+
+### 🧹 Maintenance
+- Remove dynamic title mode; keep none/filter/static only
 
 ## [1.0.0-beta.15] - 2025-08-02
 

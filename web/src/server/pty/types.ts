@@ -88,6 +88,9 @@ export interface PtySession {
   currentTitle?: string;
   // Write tracking for safe title injection
   lastWriteTimestamp?: number;
+  // Output activity tracking (for active/idle)
+  lastOutputTimestamp?: number;
+  lastInputTimestamp?: number;
   titleInjectionTimer?: NodeJS.Timeout;
   pendingTitleToInject?: string;
   titleInjectionInProgress?: boolean;

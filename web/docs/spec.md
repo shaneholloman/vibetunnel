@@ -204,7 +204,7 @@ The `vibetunnel-fwd` binary (`native/vt-fwd`) wraps any command in a VibeTunnel 
 
 **Options**:
 - `--session-id <id>`: Use a pre-generated session ID
-- `--title-mode <mode>`: none|filter|static|dynamic
+- `--title-mode <mode>`: none|filter|static
 - `--update-title <title>`: Update existing session title and exit (requires --session-id)
 
 **Artifacts**:

@@ -148,7 +148,7 @@ describe('PTY Session.json Watcher', () => {
     }
   });
 
-  it('should update dynamic title with new session name', async () => {
+  it('should update static title with new session name', async () => {
     const sessionId = `t-${Math.random().toString(36).substring(2, 8)}`;
     testSessionIds.push(sessionId);
 
@@ -160,12 +160,12 @@ describe('PTY Session.json Watcher', () => {
     process.stdout.write = writeSpy as typeof process.stdout.write;
 
     try {
-      // Create a session with dynamic title mode
+      // Create a session with static title mode
       const _result = await ptyManager.createSession(['sleep', '10'], {
         sessionId,
         name: 'original-name',
         workingDir: '/test/path',
-        titleMode: TitleMode.DYNAMIC,
+        titleMode: TitleMode.STATIC,
         forwardToStdout: true,
       });
 
@@ -178,23 +178,23 @@ describe('PTY Session.json Watcher', () => {
       // Update session name
       const sessionInfo = sessionManager.loadSessionInfo(sessionId);
       if (sessionInfo) {
-        sessionInfo.name = 'dynamic-title';
+        sessionInfo.name = 'static-title';
         sessionManager.saveSessionInfo(sessionId, sessionInfo);
       }
 
       // Wait for processing and title injection
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Verify dynamic title was updated
+      // Verify static title was updated
       const titleWrites = writeSpy.mock.calls.filter((call) => {
         const data = call[0];
         return typeof data === 'string' && data.includes('\x1B]2;');
       });
 
       expect(titleWrites.length).toBeGreaterThan(0);
-      // Dynamic title with session name - check that it contains the dynamic title
+      // Static title with session name - check that it contains the static title
       const lastTitleWrite = titleWrites[titleWrites.length - 1][0];
-      expect(lastTitleWrite).toContain('dynamic-title');
+      expect(lastTitleWrite).toContain('static-title');
     } finally {
       process.stdout.write = originalWrite;
     }

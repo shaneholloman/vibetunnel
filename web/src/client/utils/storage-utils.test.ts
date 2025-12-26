@@ -50,7 +50,7 @@ describe('storage-utils', () => {
       mockStorage[SESSION_FORM_STORAGE_KEYS.WORKING_DIR] = '/home/user/projects';
       mockStorage[SESSION_FORM_STORAGE_KEYS.COMMAND] = 'npm run dev';
       mockStorage[SESSION_FORM_STORAGE_KEYS.SPAWN_WINDOW] = 'true';
-      mockStorage[SESSION_FORM_STORAGE_KEYS.TITLE_MODE] = TitleMode.DYNAMIC;
+      mockStorage[SESSION_FORM_STORAGE_KEYS.TITLE_MODE] = TitleMode.STATIC;
 
       const result = loadSessionFormData();
 
@@ -58,7 +58,7 @@ describe('storage-utils', () => {
         workingDir: '/home/user/projects',
         command: 'npm run dev',
         spawnWindow: true,
-        titleMode: TitleMode.DYNAMIC,
+        titleMode: TitleMode.STATIC,
       });
     });
 

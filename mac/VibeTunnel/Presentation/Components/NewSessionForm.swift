@@ -28,7 +28,7 @@ struct NewSessionForm: View {
     @State private var sessionName = ""
     @State private var workingDirectory = FilePathConstants.defaultRepositoryBasePath
     @State private var spawnWindow = true
-    @State private var titleMode: TitleMode = .dynamic
+    @State private var titleMode: TitleMode = .static
 
     // Git worktree state
     @State private var isGitRepository = false
@@ -143,14 +143,6 @@ struct NewSessionForm: View {
                         TextField("claude", text: self.$command)
                             .textFieldStyle(.roundedBorder)
                             .focused(self.$focusedField, equals: .command)
-                            .onChange(of: self.command) { _, newValue in
-                                // Auto-select dynamic title mode for AI tools
-                                if newValue.lowercased().contains("claude") ||
-                                    newValue.lowercased().contains("gemini")
-                                {
-                                    self.titleMode = .dynamic
-                                }
-                            }
                     }
 
                     // Working Directory (third)

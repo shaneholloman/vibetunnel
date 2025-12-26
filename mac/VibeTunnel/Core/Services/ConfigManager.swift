@@ -56,7 +56,7 @@ final class ConfigManager {
     var sessionCommand: String = "zsh"
     var sessionWorkingDirectory: String = FilePathConstants.defaultRepositoryBasePath
     var sessionSpawnWindow: Bool = true
-    var sessionTitleMode: TitleMode = .dynamic
+    var sessionTitleMode: TitleMode = .static
 
     /// Comprehensive configuration structure
     private struct VibeTunnelConfig: Codable {
@@ -209,7 +209,7 @@ final class ConfigManager {
                     self.sessionCommand = session.command
                     self.sessionWorkingDirectory = session.workingDirectory
                     self.sessionSpawnWindow = session.spawnWindow
-                    self.sessionTitleMode = TitleMode(rawValue: session.titleMode) ?? .dynamic
+                    self.sessionTitleMode = TitleMode(rawValue: session.titleMode) ?? .static
                 }
 
                 self.logger.info("Loaded configuration from disk")

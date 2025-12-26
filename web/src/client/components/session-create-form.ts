@@ -216,10 +216,10 @@ export class SessionCreateForm extends LitElement {
     this.spawnWindow = formData.spawnWindow ?? false;
 
     // For title mode, use saved value or default to STATIC
-    this.titleMode =
-      formData.titleMode === TitleMode.DYNAMIC
-        ? TitleMode.STATIC
-        : formData.titleMode || TitleMode.STATIC;
+    const allowedTitleModes = new Set(Object.values(TitleMode));
+    this.titleMode = allowedTitleModes.has(formData.titleMode as TitleMode)
+      ? (formData.titleMode as TitleMode)
+      : TitleMode.STATIC;
 
     // Force re-render to update the input values
     this.requestUpdate();

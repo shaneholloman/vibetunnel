@@ -68,7 +68,8 @@ struct VibeTunnelMenuView: View {
             // Session list
             ScrollView {
                 SessionListSection(
-                    sessions: self.runningSessions,
+                    activeSessions: self.activeSessions,
+                    idleSessions: self.idleSessions,
                     hoveredSessionId: self.hoveredSessionId,
                     focusedField: self.focusedField,
                     hasStartedKeyboardNavigation: self.hasStartedKeyboardNavigation,
@@ -118,16 +119,22 @@ struct VibeTunnelMenuView: View {
         }
     }
 
-    private var runningSessions: [(key: String, value: ServerSessionInfo)] {
+    private var activeSessions: [(key: String, value: ServerSessionInfo)] {
         self.sessionMonitor.sessions
-            .filter(\.value.isRunning)
+            .filter { $0.value.isRunning && $0.value.isActivityActive }
+            .sorted { $0.value.startedAt > $1.value.startedAt }
+    }
+
+    private var idleSessions: [(key: String, value: ServerSessionInfo)] {
+        self.sessionMonitor.sessions
+            .filter { $0.value.isRunning && !$0.value.isActivityActive }
             .sorted { $0.value.startedAt > $1.value.startedAt }
     }
 
     // MARK: - Keyboard Navigation
 
     private func handleArrowKeyNavigation(_ isUpArrow: Bool) -> KeyPress.Result {
-        let allSessions = self.runningSessions
+        let allSessions = self.activeSessions + self.idleSessions
         let focusableFields: [MenuFocusField] = allSessions.map { .sessionRow($0.key) } +
             [.newSessionButton, .settingsButton, .quitButton]
 
