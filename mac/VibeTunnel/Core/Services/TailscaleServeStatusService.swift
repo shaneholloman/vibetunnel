@@ -113,7 +113,7 @@ final class TailscaleServeStatusService {
     func handleModeSwitch() async {
         self.logger.info("[TAILSCALE STATUS] Handling mode switch with rapid checks")
         // Do rapid silent checks to catch up with new mode
-        for i in 1...3 {
+        for _ in 1...3 {
             try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
             await self.fetchStatus(silent: true)
             if self.isRunning, self.lastError == nil {
