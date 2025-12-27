@@ -18,7 +18,6 @@ interface SessionViewTestInterface extends SessionView {
     setIsDragOver: (value: boolean) => void;
     setShowFileBrowser: (value: boolean) => void;
     setShowImagePicker: (value: boolean) => void;
-    setShowMobileInput: (value: boolean) => void;
   };
   uploadFile?: (file: File) => Promise<void>;
 }
@@ -602,11 +601,11 @@ describe('SessionView Drag & Drop and Paste', () => {
       expect(mockFilePicker.uploadFile).not.toHaveBeenCalled();
     });
 
-    it('should not handle paste when mobile input is open', async () => {
+    it('should not handle paste when file browser is open', async () => {
       // biome-ignore lint/complexity/useLiteralKeys: accessing private property for testing
       // biome-ignore lint/suspicious/noExplicitAny: need to access private property
       const uiStateManager = (element as any)['uiStateManager'];
-      uiStateManager.setShowMobileInput(true);
+      uiStateManager.setShowFileBrowser(true);
       await element.updateComplete;
 
       const file = new File(['test'], 'test.txt', { type: 'text/plain' });

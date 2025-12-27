@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+type TestWindow = Window & {
+  __appLogs?: string[];
+  __websocketConnected?: boolean;
+  __websocketUrl?: string;
+};
+
 test.describe('Tailscale WebSocket Authentication', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      const globalWindow = window as any;
+      const globalWindow = window as TestWindow;
       globalWindow.__appLogs = [];
       const levels = ['log', 'warn', 'error', 'debug'];
       const stringify = (value: unknown) => {
@@ -96,8 +102,9 @@ test.describe('Tailscale WebSocket Authentication', () => {
               this.dispatchEvent(event);
 
               // Mark as authenticated WebSocket connection
-              (window as any).__websocketConnected = true;
-              (window as any).__websocketUrl = url;
+              const globalWindow = window as TestWindow;
+              globalWindow.__websocketConnected = true;
+              globalWindow.__websocketUrl = url;
             } else {
               // Simulate rejection for missing/invalid tokens
               const event = new CloseEvent('close', { code: 1006, reason: 'Unauthorized' });
@@ -118,7 +125,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
       }
 
       // Replace WebSocket globally
-      window.WebSocket = MockWebSocket as any;
+      window.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     });
   });
 
@@ -129,7 +136,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Wait for the app to initialize and detect Tailscale auth
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) => log.includes('Authenticated via Tailscale'));
       },
       { timeout: 10000 }
@@ -138,7 +145,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Check that the token was fetched and stored
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) =>
           log.includes('WebSocket token stored for Tailscale user')
         );
@@ -161,14 +168,14 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Wait for authentication and WebSocket connection
     await page.waitForFunction(
       () => {
-        return (window as any).__websocketConnected === true;
+        return (window as TestWindow).__websocketConnected === true;
       },
       { timeout: 10000 }
     );
 
     // Verify WebSocket was connected with the token
     const websocketUrl = await page.evaluate(() => {
-      return (window as any).__websocketUrl;
+      return (window as TestWindow).__websocketUrl;
     });
 
     expect(websocketUrl).toContain('token=mock-tailscale-jwt-token-for-websocket-auth');
@@ -190,7 +197,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Wait for the warning message
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) =>
           log.includes('Failed to fetch WebSocket token, sessions may not load properly')
         );
@@ -218,7 +225,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Wait for the error handling
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) => log.includes('Error fetching WebSocket token'));
       },
       { timeout: 10000 }
@@ -227,7 +234,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // App should still initialize even with token fetch failure
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) => log.includes('Authenticated via Tailscale'));
       },
       { timeout: 5000 }
@@ -246,7 +253,7 @@ test.describe('Tailscale WebSocket Authentication', () => {
     // Should still fetch new token for Tailscale users to ensure freshness
     await page.waitForFunction(
       () => {
-        const logs = (window as any).__appLogs || [];
+        const logs = (window as TestWindow).__appLogs || [];
         return logs.some((log: string) =>
           log.includes('WebSocket token stored for Tailscale user')
         );

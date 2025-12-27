@@ -48,7 +48,6 @@ interface SessionViewTestInterface extends SessionView {
     setTerminalRows: (value: number) => void;
     setShowWidthSelector: (value: boolean) => void;
     setTerminalMaxCols: (value: number) => void;
-    setShowMobileInput: (value: boolean) => void;
     setShowFileBrowser: (value: boolean) => void;
   };
   connectionManager?: {
@@ -533,59 +532,20 @@ describe('SessionView', () => {
       await element.updateComplete;
     });
 
-    it('should show mobile input overlay', async () => {
-      const testElement = element as SessionViewTestInterface;
-      testElement.uiStateManager.setShowMobileInput(true);
+    it('should render mobile action bar', async () => {
       await element.updateComplete;
 
-      // The mobile input is rendered conditionally based on showMobileInput state
-      // Check overlays-container which contains all overlays
-      const overlaysContainer = element.querySelector('overlays-container');
-
-      // Or check for any mobile-related element in the DOM (no shadow DOM)
-      const mobileInputOverlay = element.querySelector('mobile-input-overlay');
-      const mobileOverlayDiv = element.querySelector('.mobile-overlay');
-
-      // Check the UI state is correctly set
-      expect(testElement.uiStateManager.getState().showMobileInput).toBe(true);
-
-      // At least one mobile-related element should exist or the state should be set
-      expect(
-        overlaysContainer ||
-          mobileInputOverlay ||
-          mobileOverlayDiv ||
-          testElement.uiStateManager.getState().showMobileInput
-      ).toBeTruthy();
+      const mobileActionBar = element.querySelector('mobile-action-bar');
+      expect(mobileActionBar).toBeTruthy();
     });
 
-    it('should send mobile input text', async () => {
+    it('should hide floating keyboard button when quick keys are visible', async () => {
       const testElement = element as SessionViewTestInterface;
-      testElement.uiStateManager.setShowMobileInput(true);
+      testElement.uiStateManager.setShowQuickKeys(true);
       await element.updateComplete;
 
-      // Look for mobile input form
-      const form = element.querySelector('form');
-      if (form) {
-        const input = form.querySelector('input') as HTMLInputElement;
-        if (input) {
-          input.value = 'mobile text';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-
-          // Submit form
-          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-
-          await waitForAsync();
-          // Component sends text and enter separately
-          expect(terminalSocketClientMock.sendInputText).toHaveBeenCalledWith(
-            (element.session as { id: string }).id,
-            'mobile text'
-          );
-          expect(terminalSocketClientMock.sendInputKey).toHaveBeenCalledWith(
-            (element.session as { id: string }).id,
-            'enter'
-          );
-        }
-      }
+      const keyboardButton = element.querySelector('.mobile-keyboard-button');
+      expect(keyboardButton).toBeNull();
     });
   });
 

@@ -98,7 +98,9 @@ describe('Tailscale WebSocket Authentication Basic Tests', () => {
         error: 'No token provided',
       });
 
-      const authResult = mockAuthService.verifyToken(undefined as any);
+      const authResult = mockAuthService.verifyToken(
+        undefined as unknown as Parameters<typeof mockAuthService.verifyToken>[0]
+      );
 
       expect(authResult.valid).toBe(false);
       expect(authResult.error).toBe('No token provided');

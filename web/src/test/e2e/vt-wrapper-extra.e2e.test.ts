@@ -206,7 +206,9 @@ describe('vt wrapper extra flows', () => {
           resolve();
           return;
         }
-        reject(new Error(`vt path resolution exited with code ${code ?? 'null'}:\n${stderr.join('')}`));
+        reject(
+          new Error(`vt path resolution exited with code ${code ?? 'null'}:\n${stderr.join('')}`)
+        );
       });
     });
 
